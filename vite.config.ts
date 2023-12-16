@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react-swc'
@@ -20,5 +21,8 @@ export default defineConfig({
       external: ['react', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
       output: { exports: 'named' },
     },
+  },
+  "test": {
+
   }
 })

@@ -1,5 +1,5 @@
 import React from 'react'
-import { type Realm, realm, tap, noop } from './gurx'
+import { type Realm, realm, tap, noop } from './realm'
 
 export const RealmContext = React.createContext<Realm | null>(null)
 

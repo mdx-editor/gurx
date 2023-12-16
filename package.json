@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "vitest",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
@@ -33,6 +34,7 @@
     "prettier": "3.1.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.8",
-    "vite-plugin-dts": "^3.6.4"
+    "vite-plugin-dts": "^3.6.4",
+    "vitest": "^1.0.4"
   }
 }

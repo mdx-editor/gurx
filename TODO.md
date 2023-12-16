@@ -1,4 +1,3 @@
-- eslint + prettier
 - make tests work
 - ladle
 - Break the classes/utils into separate files

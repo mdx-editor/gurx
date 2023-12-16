@@ -1,5 +1,5 @@
 import React from 'react'
-import { type Realm, type CellDefinition, type SignalDefinition } from './gurx'
+import { type Realm, type CellDefinition, type SignalDefinition } from './realm'
 import { RealmContext } from './react'
 
 export function useRealm() {
