@@ -1,18 +1,21 @@
 import React from 'react'
 import { type Realm, realm } from './realm'
-import { noop, tap } from './utils'
 
 export const RealmContext = React.createContext<Realm | null>(null)
 
 export interface RealmProviderProps {
   children: React.ReactNode
-  init?: (realm: Realm) => void
+  initWith?: Record<string, unknown>
+  updateWith?: Record<string, unknown>
 }
 
-export const RealmProvider: React.FC<RealmProviderProps> = ({ children, init = noop }) => {
-  const instance = React.useMemo(
-    () => tap(realm(), init), // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  )
-  return <RealmContext.Provider value={instance}>{children}</RealmContext.Provider>
+export const RealmProvider: React.FC<RealmProviderProps> = ({ children, initWith, updateWith = {} }) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const theRealm = React.useMemo(() => realm(initWith), [])
+
+  React.useEffect(() => {
+    theRealm.pubIn(updateWith)
+  }, [updateWith, theRealm])
+
+  return <RealmContext.Provider value={theRealm}>{children}</RealmContext.Provider>
 }

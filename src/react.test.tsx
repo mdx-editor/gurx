@@ -1,91 +1,85 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { describe, it, expect, afterEach } from 'vitest'
-import { Cell } from './realm'
+import { Action, Cell } from './realm'
 import { RealmProvider } from './react'
-import { render, cleanup, screen, fireEvent } from '@testing-library/react'
-import { useCell } from './hooks'
+import { cleanup, renderHook, render, screen } from '@testing-library/react'
+import { useCell, useCellValue, useCellValues, useSignal } from './hooks'
 
+const cell = Cell('hello')
 describe('gurx realm react', () => {
   afterEach(cleanup)
-  it('allows access to a cell value with useCell', () => {
-    const cell = Cell('hello')
 
-    const Child = () => {
-      const [value] = useCell(cell)
-      return <div data-testid="value">{value}</div>
-    }
-
-    render(
-      <RealmProvider>
-        <Child />
-      </RealmProvider>
-    )
-
-    expect(screen.getByTestId('value')).toHaveTextContent('hello')
+  it('gets a cell value with useCell', () => {
+    const { result } = renderHook(useCell, { initialProps: cell, wrapper: RealmProvider })
+    expect(result.current[0]).toEqual('hello')
   })
 
   it('has working setters', () => {
-    const cell = Cell('hello')
-    const Child = () => {
-      const [value, setValue] = useCell(cell)
-      return (
-        <div
-          data-testid="value"
-          onClick={() => {
-            setValue('world')
-          }}
-        >
-          {value}
-        </div>
-      )
-    }
-
-    const Test = () => (
-      <RealmProvider>
-        <Child />
-      </RealmProvider>
-    )
-
-    const { queryByTestId } = render(<Test />)
-    expect(screen.getByTestId('value')).toHaveTextContent('hello')
-    fireEvent.click(queryByTestId('value')!)
-    expect(screen.getByTestId('value')).toHaveTextContent('world')
+    const { result, rerender } = renderHook(useCell, { initialProps: cell, wrapper: RealmProvider })
+    expect(result.current[0]).toEqual('hello')
+    result.current[1]('world')
+    rerender(cell)
+    expect(result.current[0]).toEqual('world')
   })
 
-  /*
-  it('can register init ', () => {
-    const cell = Cell(2)
-    const signal = Signal<number>()
+  it('supports actions', () => {
+    const cell = Cell('hello')
 
-    const Child = () => {
-      const [value] = useCell(cell)
-      const setter = useSetter(signal)
-      useInit((r) => {
-        r.link(
-          r.pipe(
-            signal,
-            r.map((v) => v + 2)
-          ),
-          cell
-        )
-      })
+    const action = Action((r) => {
+      r.link(r.pipe(action, r.mapTo('world')), cell)
+    })
 
-      return (
-        <div data-testid="value" onClick={() => setter(1)}>
-          {value}
-        </div>
-      )
-    }
-
-    const Test = () => (
-      <RealmProvider>
-        <Child />
-      </RealmProvider>
+    const { result, rerender } = renderHook(
+      () => {
+        const proc = useSignal(action)
+        const value = useCellValue(cell)
+        return [value, proc] as const
+      },
+      { wrapper: RealmProvider }
     )
+    expect(result.current[0]).toEqual('hello')
+    result.current[1]()
+    rerender(cell)
+    expect(result.current[0]).toEqual('world')
+  })
 
-    const { queryByTestId } = render(<Test />)
-    expect(screen.getByTestId('value')).toHaveTextContent('2')
-    fireEvent.click(queryByTestId('value')!)
-    expect(screen.getByTestId('value')).toHaveTextContent('3')
-  }) */
+  it('supports multiple values', () => {
+    const a = Cell('a')
+    const b = Cell('b')
+    const { result } = renderHook(() => useCellValues(a, b), { wrapper: RealmProvider })
+
+    expect(result.current).toEqual(['a', 'b'])
+  })
+
+  describe('provider props', () => {
+    it('allows setting initial cell values', () => {
+      const { result } = renderHook(useCell, {
+        initialProps: cell,
+        wrapper: ({ children }) => {
+          return <RealmProvider initWith={{ [cell.id]: 'world' }}>{children}</RealmProvider>
+        },
+      })
+      expect(result.current[0]).toEqual('world')
+    })
+    it('accepts update props', () => {
+      const Child = () => {
+        const [value] = useCell(cell)
+        return <div data-testid="cell-value">{value}</div>
+      }
+      const { rerender } = render(
+        <RealmProvider initWith={{ [cell.id]: '1' }}>
+          <Child />
+        </RealmProvider>
+      )
+
+      expect(screen.getByTestId('cell-value').textContent).toEqual('1')
+
+      rerender(
+        <RealmProvider updateWith={{ [cell.id]: '2' }}>
+          <Child />
+        </RealmProvider>
+      )
+
+      expect(screen.getByTestId('cell-value').textContent).toEqual('2')
+    })
+  })
 })

@@ -1,6 +1,6 @@
 import { RefCount } from './RefCount'
 import { SetMap } from './SetMap'
-import { tap } from './utils'
+import { noop, tap } from './utils'
 
 export type LongTuple<K> =
   | []
@@ -46,12 +46,13 @@ export interface CellDefinition<T> extends RealmNode<T> {
   cellDefinition: true
   distinct: Distinct<T>
   initial: T
-  toString: () => symbol
+  init: (realm: Realm) => void
 }
 
 export interface SignalDefinition<T> extends RealmNode<T> {
   signalDefinition: true
   distinct: Distinct<T>
+  init: (realm: Realm) => void
 }
 
 type RN<T> = RealmNode<T> | CellDefinition<T> | SignalDefinition<T>
@@ -91,17 +92,20 @@ export function defaultComparator<T>(current: T, next: T) {
 
 export type RealmGraph = SetMap<RealmProjection>
 
-const NO_VALUE = Symbol('NO_VALUE')
-
-export function realm() {
+export function realm(initialValues: Record<symbol, unknown> = {}) {
   const subscriptions = new SetMap<Subscription<unknown>>()
   const singletonSubscriptions = new Map<symbol, Subscription<unknown>>()
   const graph: RealmGraph = new SetMap()
   const state = new Map<symbol, unknown>()
+  for (const id of Object.getOwnPropertySymbols(initialValues)) {
+    state.set(id, initialValues[id])
+  }
   const distinctNodes = new Map<symbol, Comparator<unknown>>()
 
   function cellInstance<T>(value: T, distinct: Distinct<T> = false, id = Symbol()): RealmNode<T> {
-    state.set(id, value)
+    if (!state.has(id)) {
+      state.set(id, value)
+    }
 
     if (distinct !== false) {
       distinctNodes.set(id, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
@@ -138,12 +142,11 @@ export function realm() {
     singletonSubscriptions.clear()
   }
 
-  function subMultiple<T1>(...args: [RN<T1>, Subscription<T1>]): UnsubscribeHandle
-  function subMultiple<T1, T2>(...args: [RN<T1>, RN<T2>, Subscription<[T1, T2]>]): UnsubscribeHandle
-  function subMultiple<T1, T2, T3>(...args: [RN<T1>, RN<T2>, RN<T3>, Subscription<[T1, T2, T3]>]): UnsubscribeHandle
-  function subMultiple(...args: unknown[]): UnsubscribeHandle {
-    const [subscription] = args.slice(-1) as Array<Subscription<unknown>>
-    const sources = args.slice(0, -1) as Array<RN<unknown>>
+  function subMultiple<T1>(nodes: [RN<T1>], subscription: Subscription<[T1]>): UnsubscribeHandle
+  function subMultiple<T1, T2>(nodes: [RN<T1>, RN<T2>], subscription: Subscription<[T1, T2]>): UnsubscribeHandle
+  function subMultiple<T1, T2, T3>(nodes: [RN<T1>, RN<T2>, RN<T3>], subscription: Subscription<[T1, T2, T3]>): UnsubscribeHandle
+  function subMultiple(nodes: Array<RN<unknown>>, subscription: Subscription<unknown[]>): UnsubscribeHandle
+  function subMultiple(nodes: Array<RN<unknown>>, subscription: Subscription<any>): UnsubscribeHandle {
     const sink = signalInstance()
     connect({
       map:
@@ -152,7 +155,7 @@ export function realm() {
           done(args)
         },
       sink,
-      sources,
+      sources: nodes,
     })
     return sub(sink, subscription)
   }
@@ -176,14 +179,14 @@ export function realm() {
       })
 
       graph.use(id, (sinkProjections) => {
-        sinkProjections.forEach((projection) => {
+        for (const projection of sinkProjections) {
           if (projection.sources.has(id)) {
             projections.getOrCreate(projection.sink).add(projection)
             visit(projection.sink, insertIndex)
           } else {
             pendingPulls.getOrCreate(projection.sink).add(id)
           }
-        })
+        }
       })
 
       visitedNodes.add(id)
@@ -229,14 +232,14 @@ export function realm() {
 
     function nodeWillNotEmit(key: symbol) {
       graph.use(key, (projections) => {
-        projections.forEach(({ sources, sink }) => {
+        for (const { sources, sink } of projections) {
           if (sources.has(key)) {
             refCount.decrement(sink, () => {
               participatingNodeKeys.splice(participatingNodeKeys.indexOf(sink), 1)
               nodeWillNotEmit(sink)
             })
           }
-        })
+        }
       })
     }
 
@@ -263,17 +266,19 @@ export function realm() {
         done(values[id])
       } else {
         map.projections.use(id, (nodeProjections) => {
-          nodeProjections.forEach((projection) => {
+          for (const projection of nodeProjections) {
             const args = [...Array.from(projection.sources), ...Array.from(projection.pulls)].map((id) => transientState.get(id))
             projection.map(done)(...args)
-          })
+          }
         })
       }
 
       if (resolved) {
         const value = transientState.get(id)
         subscriptions.use(id, (nodeSubscriptions) => {
-          nodeSubscriptions.forEach((subscription) => subscription(value))
+          for (const subscription of nodeSubscriptions) {
+            subscription(value)
+          }
         })
         singletonSubscriptions.get(id)?.(value)
       } else {
@@ -290,21 +295,23 @@ export function realm() {
    * A low-level utility that connects multiple nodes to a sink node with a map function.
    * The nodes can be active (sources) or passive (pulls).
    */
-  function connect<T extends unknown[] = unknown[]>({ sources, pulls = [], map, sink: { id: sink } }: RealmProjectionSpec<T>) {
+  function connect<T extends unknown[] = unknown[]>({ sources, pulls = [], map, sink }: RealmProjectionSpec<T>) {
     const dependency: RealmProjection<T> = {
       map,
       pulls: nodesToKeySet(pulls),
-      sink,
+      sink: register(sink).id,
       sources: nodesToKeySet(sources),
     }
 
-    ;[...sources, ...pulls].forEach((node) => {
+    for (const node of [...sources, ...pulls]) {
       register(node)
       graph.getOrCreate(node.id).add(dependency as RealmProjection<unknown[]>)
-    })
+    }
+
     executionMaps.clear()
   }
 
+  function pub(node: RN<unknown>): void
   function pub<T1>(...args: [RN<T1>, T1]): void
   function pub<T1, T2>(...args: [RN<T1>, T1, RN<T2>, T2]): void
   function pub<T1, T2, T3>(...args: [RN<T1>, T1, RN<T2>, T2, RN<T3>, T3]): void
@@ -488,17 +495,42 @@ export function realm() {
     return ((source: RealmNode<I>) => {
       const sink = signalInstance<I>()
       let currentValue: I | undefined
-      let timeout: ReturnType<typeof setTimeout> | undefined
+      let timeout: ReturnType<typeof setTimeout> | null = null
 
       sub(source, (value) => {
         currentValue = value
 
-        if (timeout === undefined) {
+        if (timeout !== null) {
           return
         }
 
         timeout = setTimeout(() => {
-          timeout = undefined
+          timeout = null
+          pub(sink, currentValue)
+        }, delay)
+      })
+
+      return sink
+    }) as Operator<I, I>
+  }
+
+  /**
+   * Debounces the output of a node with the specified delay.
+   */
+  function debounceTime<I>(delay: number) {
+    return ((source: RealmNode<I>) => {
+      const sink = signalInstance<I>()
+      let currentValue: I | undefined
+      let timeout: ReturnType<typeof setTimeout> | null = null
+
+      sub(source, (value) => {
+        currentValue = value
+
+        if (timeout !== null) {
+          clearTimeout(timeout)
+        }
+
+        timeout = setTimeout(() => {
           pub(sink, currentValue)
         }, delay)
       })
@@ -523,72 +555,26 @@ export function realm() {
   }
 
   /**
-   * Debounces the output of a node with the specified delay.
-   */
-  function debounceTime<I>(delay: number) {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<I>()
-      let currentValue: I | undefined
-      let timeout: ReturnType<typeof setTimeout> | undefined
-
-      sub(source, (value) => {
-        currentValue = value
-
-        if (timeout === undefined) {
-          clearTimeout(timeout)
-        }
-
-        timeout = setTimeout(() => {
-          pub(sink, currentValue)
-        }, delay)
-      })
-
-      return sink
-    }) as Operator<I, I>
-  }
-
-  /**
    * Buffers the stream of a node until the passed note emits.
    */
   function onNext<I, O>(bufNode: RN<O>) {
     return ((source: RealmNode<I>) => {
       const sink = signalInstance<O>()
-      let pendingValue: I | typeof NO_VALUE = NO_VALUE
-      sub(source, (value) => (pendingValue = value))
+      const bufferValue = Symbol()
+      let pendingValue: I | typeof bufferValue = bufferValue
       connect({
         map: (done) => (value) => {
-          if (pendingValue !== NO_VALUE) {
+          if (pendingValue !== bufferValue) {
             done([pendingValue, value])
-            pendingValue = NO_VALUE
+            pendingValue = bufferValue
           }
         },
         sink,
         sources: [bufNode],
       })
+      sub(source, (value) => (pendingValue = value))
       return sink
     }) as Operator<I, [I, O]>
-  }
-
-  /**
-   * Conditionally passes the stream of a node only if the passed note
-   * has emitted before a certain duration (in seconds).
-   */
-  function passOnlyAfterNodeHasEmittedBefore<I>(starterNode: RN<unknown>, durationNode: RN<number>) {
-    return (source: RealmNode<I>) => {
-      const sink = signalInstance<I>()
-      let startTime = 0
-      sub(starterNode, () => (startTime = Date.now()))
-      connect({
-        map: (done) => (value) => {
-          if (Date.now() < startTime + (state.get(durationNode.id) as number)) {
-            done(value)
-          }
-        },
-        sink,
-        sources: [source],
-      })
-      return sink
-    }
   }
 
   /**
@@ -673,19 +659,46 @@ export function realm() {
     return state.get(node.id) as T
   }
 
+  /**
+   * Gets the current value of a node. The node must be stateful.
+   * @param node - the node instance.
+   */
+  function getValues<T1>(nodes: [RN<T1>]): [T1] // prettier-ignore
+  function getValues<T1, T2>(nodes: [RN<T1>, RN<T2>]): [T1, T2] // prettier-ignore
+  function getValues<T1, T2, T3>(nodes: [RN<T1>, RN<T2>, RN<T3>]): [T1, T2, T3] // prettier-ignore
+  function getValues<T1, T2, T3, T4>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>]): [T1, T2, T3, T4]; // prettier-ignore
+  function getValues<T1, T2, T3, T4, T5>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>]): [T1, T2, T3, T4, T5]; // prettier-ignore
+  function getValues<T1, T2, T3, T4, T5, T6>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>]): [T1, T2, T3, T4, T5, T6]; // prettier-ignore
+  function getValues<T1, T2, T3, T4, T5, T6, T7>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>]): [T1, T2, T3, T4, T5, T6, T7]; // prettier-ignore
+  function getValues<T1, T2, T3, T4, T5, T6, T7, T8>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>]): [T1, T2, T3, T4, T5, T6, T7, T8]; // prettier-ignore
+  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9]; // prettier-ignore
+  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]; // prettier-ignore
+  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]; // prettier-ignore
+  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>, RN<T12>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]; // prettier-ignore
+  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>, RN<T12>, RN<T13>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]; // prettier-ignore
+  function getValues(nodes: Array<RN<unknown>>): unknown[]
+  function getValues(nodes: Array<RN<unknown>>): unknown[] {
+    return nodes.map((node) => {
+      register(node)
+      return state.get(node.id)
+    })
+  }
+
   const definitionRegistry = new Set<symbol>()
 
-  function registerCell<T>({ id, initial, distinct }: CellDefinition<T>): RealmNode<T> {
+  function registerCell<T>({ id, initial, distinct, init }: CellDefinition<T>): RealmNode<T> {
     if (!definitionRegistry.has(id)) {
       definitionRegistry.add(id)
+      init(result)
       return cellInstance(initial, distinct, id)
     }
     return { id }
   }
 
-  function registerSignal<T>({ id, distinct }: SignalDefinition<T>): RealmNode<T> {
+  function registerSignal<T>({ id, distinct, init }: SignalDefinition<T>): RealmNode<T> {
     if (!definitionRegistry.has(id)) {
       definitionRegistry.add(id)
+      init(result)
       return signalInstance(distinct, id)
     }
     return { id }
@@ -701,13 +714,15 @@ export function realm() {
     return node
   }
 
-  return {
+  const result = {
+    register,
     registerCell,
     registerSignal,
     combine,
     connect,
     derive,
     getValue,
+    getValues,
     link,
     delayWithMicrotask,
     debounceTime,
@@ -719,33 +734,44 @@ export function realm() {
     throttleTime,
     withLatestFrom,
     once,
-    passOnlyAfterNodeHasEmittedBefore,
     pipe,
     pub,
+    pubIn,
     resetSingletonSubs,
     singletonSub,
     spread,
     sub,
     subMultiple,
   }
+  return result
 }
 
-export function Cell<T>(value: T, distinct: Distinct<T> = false): CellDefinition<T> {
+export function Cell<T>(value: T, distinct: Distinct<T> = false, init: (r: Realm) => void = noop): CellDefinition<T> {
   const id = Symbol()
   return {
     cellDefinition: true,
     id,
     distinct,
+    init,
     initial: value,
-    toString: () => id,
   }
 }
 
-export function Signal<T>(distinct: Distinct<T> = false): SignalDefinition<T> {
+export function Signal<T>(distinct: Distinct<T> = false, init: (r: Realm) => void = noop): SignalDefinition<T> {
   return {
     signalDefinition: true,
     id: Symbol(),
     distinct,
+    init,
+  }
+}
+
+export function Action(init: (r: Realm) => void = noop): SignalDefinition<void> {
+  return {
+    signalDefinition: true,
+    id: Symbol(),
+    distinct: false,
+    init,
   }
 }
 

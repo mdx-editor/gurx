@@ -1,7 +1,6 @@
-- Break the classes/utils into separate files
-- initWith, updateWith props on provider
-- cell/signal init function
+- doc comments
+- port the editor core system
+- events, callbacks
+- migrate the app
 - pipe through promise
-- no value signals
-- See if NO_VALUE is used
-- ladle
+

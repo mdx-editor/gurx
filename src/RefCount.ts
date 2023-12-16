@@ -1,5 +1,5 @@
 export class RefCount {
-  constructor(private readonly map = new Map<symbol, number>()) {}
+  constructor(readonly map = new Map<symbol, number>()) {}
 
   clone() {
     return new RefCount(new Map(this.map))
