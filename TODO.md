@@ -1,7 +1,7 @@
-- ladle
 - Break the classes/utils into separate files
-- See if NO_VALUE is used
-- initWith, updateWith
+- initWith, updateWith props on provider
+- cell/signal init function
 - pipe through promise
 - no value signals
-- cell/signal init function
+- See if NO_VALUE is used
+- ladle

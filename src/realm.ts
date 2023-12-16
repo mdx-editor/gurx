@@ -1,3 +1,5 @@
+import { RefCount } from './RefCount'
+import { SetMap } from './SetMap'
 import { tap } from './utils'
 
 export type LongTuple<K> =
@@ -85,62 +87,6 @@ export type NodesFromValues<T extends unknown[]> = T extends unknown[] ? NodesFr
  */
 export function defaultComparator<T>(current: T, next: T) {
   return current === next
-}
-
-class SetMap<T> {
-  map = new Map<symbol, Set<T>>()
-
-  getOrCreate(id: symbol) {
-    let record = this.map.get(id)
-    if (record === undefined) {
-      record = new Set<T>()
-      this.map.set(id, record)
-    }
-    return record
-  }
-
-  get(id: symbol) {
-    return this.map.get(id)
-  }
-
-  use(id: symbol, cb: (value: Set<T>) => unknown) {
-    const set = this.get(id)
-    if (set !== undefined) {
-      cb(set)
-    }
-  }
-
-  delete(id: symbol) {
-    return this.map.delete(id)
-  }
-}
-
-export class RefCount {
-  map: Map<symbol, number>
-
-  constructor(map = new Map<symbol, number>()) {
-    this.map = map
-  }
-
-  clone() {
-    return new RefCount(new Map(this.map))
-  }
-
-  increment(id: symbol) {
-    const counter = this.map.get(id) ?? 0
-    this.map.set(id, counter + 1)
-  }
-
-  decrement(id: symbol, ifZero: () => void) {
-    let counter = this.map.get(id)
-    if (counter !== undefined) {
-      counter -= 1
-      this.map.set(id, counter)
-      if (counter === 0) {
-        ifZero()
-      }
-    }
-  }
 }
 
 export type RealmGraph = SetMap<RealmProjection>
