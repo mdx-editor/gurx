@@ -1,12 +1,4 @@
-/**
- * Calls callback with the first argument, and returns it.
- */
-export function tap<T>(arg: T, proc: (arg: T) => unknown): T {
-  proc(arg)
-  return arg
-}
-
-export function noop() {}
+import { tap } from './utils'
 
 export type LongTuple<K> =
   | []
