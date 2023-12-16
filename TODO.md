@@ -1,0 +1,9 @@
+- eslint + prettier
+- make tests work
+- ladle
+- Break the classes/utils into separate files
+- See if NO_VALUE is used
+- initWith, updateWith
+- pipe through promise
+- no value signals
+- cell/signal init function
