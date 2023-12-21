@@ -55,7 +55,7 @@ export interface SignalDefinition<T> extends RealmNode<T> {
   init: (realm: Realm) => void
 }
 
-type RN<T> = RealmNode<T> | CellDefinition<T> | SignalDefinition<T>
+export type RN<T> = RealmNode<T> | CellDefinition<T> | SignalDefinition<T>
 
 export type Subscription<T> = (value: T) => unknown
 
@@ -92,6 +92,8 @@ export function defaultComparator<T>(current: T, next: T) {
 
 export type RealmGraph = SetMap<RealmProjection>
 
+export type Operator<I, OP> = (source: RN<I>, realm: Realm) => RealmNode<OP>
+
 export function realm(initialValues: Record<symbol, unknown> = {}) {
   const subscriptions = new SetMap<Subscription<unknown>>()
   const singletonSubscriptions = new Map<symbol, Subscription<unknown>>()
@@ -124,7 +126,7 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
     register(node)
     const nodeSubscriptions = subscriptions.getOrCreate(node.id)
     nodeSubscriptions.add(subscription as Subscription<unknown>)
-    return () => nodeSubscriptions.add(subscription as Subscription<unknown>)
+    return () => nodeSubscriptions.delete(subscription as Subscription<unknown>)
   }
 
   function singletonSub<T>(node: RealmNode<T>, subscription: Subscription<T> | undefined): UnsubscribeHandle {
@@ -326,8 +328,6 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
     pubIn(map)
   }
 
-  type Operator<I, OP> = (source: RealmNode<I>) => RealmNode<OP>
-
   type O<I, OP> = Operator<I, OP>
 
   function pipe<T> (s: RN<T>): RN<T> // prettier-ignore
@@ -340,7 +340,7 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
   function pipe<T, O1, O2, O3, O4, O5, O6, O7> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): RN<O7> // prettier-ignore
   function pipe<T>(source: RN<T>, ...operators: Array<O<unknown, unknown>>): RealmNode<unknown> {
     for (const operator of operators) {
-      source = operator(source)
+      source = operator(source, result)
     }
     return source
   }
@@ -393,217 +393,6 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
         sources: [source],
       })
     })
-  }
-
-  /**
-   * Operator that maps a the value of a node to a new node with a projection function.
-   */
-  function map<I, O>(mapFunction: (value: I) => O) {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<O>()
-      connect({
-        map: (done) => (value) => {
-          done(mapFunction(value as I))
-        },
-        sink,
-        sources: [source],
-      })
-      return sink
-    }) as Operator<I, O>
-  }
-
-  /**
-   * Operator that maps the output of a node to a fixed value.
-   */
-  function mapTo<I, O>(value: O) {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<O>()
-      connect({
-        map: (done) => () => {
-          done(value)
-        },
-        sink,
-        sources: [source],
-      })
-      return sink
-    }) as Operator<I, O>
-  }
-
-  /**
-   * Operator that filters the output of a node.
-   * If the predicate returns false, the emission is canceled.
-   */
-  function filter<I, O = I>(predicate: (value: I) => boolean) {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<O>()
-      connect({
-        map: (done) => (value) => {
-          predicate(value as I) && done(value)
-        },
-        sink,
-        sources: [source],
-      })
-      return sink
-    }) as Operator<I, O>
-  }
-
-  /**
-   * Operator that captures the first emitted value of a node.
-   * Useful if you want to execute a side effect only once.
-   */
-  function once<I>() {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<I>()
-
-      let passed = false
-      connect({
-        map: (done) => (value) => {
-          if (!passed) {
-            passed = true
-            done(value)
-          }
-        },
-        sink,
-        sources: [source],
-      })
-      return sink
-    }) as Operator<I, I>
-  }
-
-  /**
-   * Operator that runs with the latest and the current value of a node.
-   * Works like the {@link https://rxjs.dev/api/operators/scan | RxJS scan operator}.
-   */
-  function scan<I, O>(accumulator: (current: O, value: I) => O, seed: O) {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<O>()
-      connect({
-        map: (done) => (value) => {
-          done((seed = accumulator(seed, value as I)))
-        },
-        sink,
-        sources: [source],
-      })
-      return sink
-    }) as Operator<I, O>
-  }
-
-  /**
-   * Throttles the output of a node with the specified delay.
-   */
-  function throttleTime<I>(delay: number) {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<I>()
-      let currentValue: I | undefined
-      let timeout: ReturnType<typeof setTimeout> | null = null
-
-      sub(source, (value) => {
-        currentValue = value
-
-        if (timeout !== null) {
-          return
-        }
-
-        timeout = setTimeout(() => {
-          timeout = null
-          pub(sink, currentValue)
-        }, delay)
-      })
-
-      return sink
-    }) as Operator<I, I>
-  }
-
-  /**
-   * Debounces the output of a node with the specified delay.
-   */
-  function debounceTime<I>(delay: number) {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<I>()
-      let currentValue: I | undefined
-      let timeout: ReturnType<typeof setTimeout> | null = null
-
-      sub(source, (value) => {
-        currentValue = value
-
-        if (timeout !== null) {
-          clearTimeout(timeout)
-        }
-
-        timeout = setTimeout(() => {
-          pub(sink, currentValue)
-        }, delay)
-      })
-
-      return sink
-    }) as Operator<I, I>
-  }
-
-  /**
-   * Delays the output of a node with `queueMicrotask`.
-   */
-  function delayWithMicrotask<I>() {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<I>()
-      sub(source, (value) => {
-        queueMicrotask(() => {
-          pub(sink, value)
-        })
-      })
-      return sink
-    }) as Operator<I, I>
-  }
-
-  /**
-   * Buffers the stream of a node until the passed note emits.
-   */
-  function onNext<I, O>(bufNode: RN<O>) {
-    return ((source: RealmNode<I>) => {
-      const sink = signalInstance<O>()
-      const bufferValue = Symbol()
-      let pendingValue: I | typeof bufferValue = bufferValue
-      connect({
-        map: (done) => (value) => {
-          if (pendingValue !== bufferValue) {
-            done([pendingValue, value])
-            pendingValue = bufferValue
-          }
-        },
-        sink,
-        sources: [bufNode],
-      })
-      sub(source, (value) => (pendingValue = value))
-      return sink
-    }) as Operator<I, [I, O]>
-  }
-
-  /**
-   * Pulls the latest values from the passed nodes.
-   * Note: The operator does not emit when the nodes emit. If you want to get that, use the `combine` function.
-   */
-  function withLatestFrom<I, T1> (...nodes: [RN<T1>]): (source: RN<I>) => RN<[I, T1]> // prettier-ignore
-  function withLatestFrom<I, T1, T2> (...nodes: [RN<T1>, RN<T2>]): (source: RN<I>) => RN<[I, T1, T2]> // prettier-ignore
-  function withLatestFrom<I, T1, T2, T3> (...nodes: [RN<T1>, RN<T2>, RN<T3>]): (source: RN<I>) => RN<[I, T1, T2, T3]> // prettier-ignore
-  function withLatestFrom<I, T1, T2, T3, T4> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>]): (source: RN<I>) => RN<[I, T1, T2, T3, T4]> // prettier-ignore
-  function withLatestFrom<I, T1, T2, T3, T4, T5> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>]): (source: RN<I>) => RN<[I, T1, T2, T3, T4, T5]> // prettier-ignore
-  function withLatestFrom<I, T1, T2, T3, T4, T5, T6> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>]): (source: RN<I>) => RN<[I, T1, T2, T3, T4, T5, T6]> // prettier-ignore
-  function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>]): (source: RN<I>) => RN<[I, T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
-  function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7, T8> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>]): (source: RN<I>) => RN<[I, T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
-  function withLatestFrom<I>(...nodes: Array<RN<unknown>>) {
-    return (source: RN<I>) => {
-      const sink = signalInstance()
-      connect({
-        map:
-          (done) =>
-          (...args) => {
-            done(args)
-          },
-        pulls: nodes,
-        sink,
-        sources: [source],
-      })
-      return sink
-    }
   }
 
   /**
@@ -724,16 +513,6 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
     getValue,
     getValues,
     link,
-    delayWithMicrotask,
-    debounceTime,
-    filter,
-    map,
-    mapTo,
-    onNext,
-    scan,
-    throttleTime,
-    withLatestFrom,
-    once,
     pipe,
     pub,
     pubIn,
@@ -742,6 +521,8 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
     spread,
     sub,
     subMultiple,
+    signalInstance,
+    cellInstance,
   }
   return result
 }

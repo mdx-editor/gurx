@@ -3,6 +3,7 @@ import { Action, Cell } from './realm'
 import { RealmProvider } from './react'
 import { cleanup, renderHook, render, screen } from '@testing-library/react'
 import { useCell, useCellValue, useCellValues, useSignal } from './hooks'
+import { mapTo } from './operators'
 
 const cell = Cell('hello')
 describe('gurx realm react', () => {
@@ -25,7 +26,7 @@ describe('gurx realm react', () => {
     const cell = Cell('hello')
 
     const action = Action((r) => {
-      r.link(r.pipe(action, r.mapTo('world')), cell)
+      r.link(r.pipe(action, mapTo('world')), cell)
     })
 
     const { result, rerender } = renderHook(

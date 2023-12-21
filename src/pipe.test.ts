@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest'
 
 import { realm, Signal, Cell } from './realm'
+import { scan, debounceTime, filter, map, mapTo, withLatestFrom, onNext, throttleTime, once } from './operators'
 import { noop } from './utils'
 
 async function awaitCall(cb: () => unknown, delay: number) {
@@ -20,7 +21,7 @@ describe('pipe', () => {
 
     const b = r.pipe(
       a,
-      r.map((val: number) => val * 2)
+      map((val: number) => val * 2)
     )
     const spy = vi.fn()
     r.sub(b, spy)
@@ -34,7 +35,7 @@ describe('pipe', () => {
 
     const b = r.pipe(
       a,
-      r.filter((val: number) => val % 2 === 0)
+      filter((val: number) => val % 2 === 0)
     )
 
     const spy = vi.fn()
@@ -52,7 +53,7 @@ describe('pipe', () => {
     const a = Cell('foo')
     const b = Cell('bar')
 
-    const c = r.pipe(a, r.withLatestFrom(b))
+    const c = r.pipe(a, withLatestFrom(b))
 
     const spy = vi.fn()
     r.sub(c, spy)
@@ -70,7 +71,7 @@ describe('pipe', () => {
     const r = realm()
     const a = Signal<number>()
 
-    const b = r.pipe(a, r.mapTo('bar'))
+    const b = r.pipe(a, mapTo('bar'))
 
     const spy = vi.fn()
     r.sub(b, spy)
@@ -85,7 +86,7 @@ describe('pipe', () => {
 
     const b = r.pipe(
       a,
-      r.scan((acc, value) => acc + value, 1)
+      scan((acc, value) => acc + value, 1)
     )
 
     const spy = vi.fn()
@@ -103,7 +104,7 @@ describe('pipe', () => {
     const a = Signal<number>()
     const b = Signal<number>()
 
-    const c = r.pipe(a, r.onNext(b))
+    const c = r.pipe(a, onNext(b))
 
     const spy = vi.fn()
     r.sub(c, spy)
@@ -131,7 +132,7 @@ describe('pipe', () => {
     const a = Signal<number>()
     const b = Signal<number>()
 
-    r.link(r.pipe(a, r.once()), b)
+    r.link(r.pipe(a, once()), b)
 
     const spy = vi.fn()
     r.sub(b, spy)
@@ -145,7 +146,7 @@ describe('pipe', () => {
   it('throttleTime delays the execution', async () => {
     const r = realm()
     const a = Signal<number>()
-    const b = r.pipe(a, r.throttleTime(60))
+    const b = r.pipe(a, throttleTime(60))
     const spy = vi.fn()
     r.sub(b, spy)
 
@@ -163,7 +164,7 @@ describe('pipe', () => {
   it('debounceTime bounces the execution', async () => {
     const r = realm()
     const a = Signal<number>()
-    const b = r.pipe(a, r.debounceTime(60))
+    const b = r.pipe(a, debounceTime(60))
     const spy = vi.fn()
     r.sub(b, spy)
 
@@ -201,7 +202,7 @@ describe('pipe', () => {
     const b = r.derive(
       r.pipe(
         a,
-        r.map((val) => val * 2)
+        map((val) => val * 2)
       ),
       2
     )
@@ -219,8 +220,8 @@ describe('pipe', () => {
     r.link(
       r.pipe(
         a,
-        r.withLatestFrom(b),
-        r.map(([_, b]) => b + 1)
+        withLatestFrom(b),
+        map(([_, b]) => b + 1)
       ),
       b
     )

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, expectTypeOf } from 'vitest'
 import { realm, Cell, type Realm, Signal, Action } from './realm'
+import { filter, map } from './operators'
 
 describe('gurx cells/signals', () => {
   let r: Realm
@@ -98,8 +99,8 @@ describe('realm features', () => {
     r.link(
       r.pipe(
         r.combine(n, q),
-        r.filter(([data]) => data !== undefined),
-        r.map(([data]) => data?.length)
+        filter(([data]) => data !== undefined),
+        map(([data]) => data?.length)
       ),
       tc
     )

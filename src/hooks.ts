@@ -16,7 +16,6 @@ export function useCellValue<T>(cell: CellDefinition<T>) {
 
   const cb = React.useCallback(
     (c: () => void) => {
-      console.log('subscribing!!')
       return realm.sub(cell, c)
     },
     [realm, cell]
