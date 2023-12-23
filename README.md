@@ -20,7 +20,7 @@ const signal$ = Signal<number>(true, (r) => {
   r.link(
     r.pipe(
       signal$,
-      map((signal) => `Signal${signal}`)
+     map((signal) => `Signal${signal}`)
     ),
     cell$
   )

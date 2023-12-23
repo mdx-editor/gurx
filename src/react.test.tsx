@@ -1,9 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { Action, Cell } from './realm'
 import { RealmProvider } from './react'
 import { cleanup, renderHook, render, screen } from '@testing-library/react'
 import { useCell, useCellValue, useCellValues, useSignal } from './hooks'
 import { mapTo } from './operators'
+import { Cell, Action } from '.'
 
 const cell = Cell('hello')
 describe('gurx realm react', () => {

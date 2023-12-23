@@ -1,18 +1,17 @@
 import { describe, it, expect, beforeEach, vi, expectTypeOf } from 'vitest'
-import { realm, Cell, type Realm, Signal, Action } from './realm'
 import { filter, handlePromise, map } from './operators'
+import { Realm, Cell, Signal, Action } from '.'
 
 describe('gurx cells/signals', () => {
   let r: Realm
   beforeEach(() => {
-    r = realm()
+    r = new Realm()
   })
 
   it('registers cells so that their value is accessed', () => {
     const cell = Cell('hello')
     expect(r.getValue(cell)).toEqual('hello')
     r.pub(cell, 'world')
-    r.registerCell(cell)
     expect(r.getValue(cell)).toEqual('world')
   })
 
@@ -37,7 +36,7 @@ describe('gurx cells/signals', () => {
 
   it('accepts initial cell values', () => {
     const cell = Cell('foo')
-    r = realm({ [cell.id]: 'bar' })
+    r = new Realm({ [cell.id]: 'bar' })
     expect(r.getValue(cell)).toEqual('bar')
   })
 
@@ -81,7 +80,7 @@ describe('realm features', () => {
   let r: Realm
 
   beforeEach(() => {
-    r = realm()
+    r = new Realm()
   })
 
   it('supports pub/sub', () => {
@@ -437,7 +436,7 @@ describe('realm features', () => {
   })
 
   it('supports custom comparator when distinct flag is set', () => {
-    const a = Cell({ id: 'foo' }, (current, next) => current.id === next.id)
+    const a = Cell({ id: 'foo' }, (current, next) => (current !== undefined ? current.id === next.id : false))
     const spy = vi.fn()
     r.sub(a, spy)
     r.pub(a, { id: 'foo' })
@@ -479,7 +478,7 @@ describe('realm features', () => {
 
 describe('singleton subscription', () => {
   it('calls the subscription', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
     const spy1 = vi.fn()
     r.singletonSub(a, spy1)
@@ -488,7 +487,7 @@ describe('singleton subscription', () => {
   })
 
   it('replaces the subscription', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
     const spy1 = vi.fn()
     const spy2 = vi.fn()
@@ -501,7 +500,7 @@ describe('singleton subscription', () => {
   })
 
   it('returns an unsubscribe handler', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
     const spy1 = vi.fn()
     const unsub = r.singletonSub(a, spy1)
@@ -512,7 +511,7 @@ describe('singleton subscription', () => {
   })
 
   it('supports changing a cell value', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Cell(1)
     const b = Signal<number>()
 
@@ -524,7 +523,7 @@ describe('singleton subscription', () => {
   })
 
   it('supports creating transformer nodes', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Cell('foo')
     const s = Signal<number>()
     const b = r.transformer(
@@ -538,7 +537,7 @@ describe('singleton subscription', () => {
   })
 
   it('supports promise resolution', async () => {
-    const r = realm()
+    const r = new Realm()
     const a = Cell<'loading' | 'loaded' | 'error' | 'none'>('none')
     const s = Signal<number>()
 
@@ -556,8 +555,8 @@ describe('singleton subscription', () => {
           })
         }),
         handlePromise(
-          (value) => value,
           () => 'loading',
+          (value) => value,
           (error) => error
         )
       ),
@@ -573,41 +572,3 @@ describe('singleton subscription', () => {
     expect(r.getValue(a)).toEqual('error')
   })
 })
-
-/*
-describe.skip("performance", () => {
-  it("reuses calculated paths", () => {
-    const r = realm();
-    const MAX_DEPTH = 10;
-    let subCalledCount = 0;
-    let nodeCount = 0;
-    const recursivelyAddTwoChildren = (parent: NodeKey, depth = 0) => {
-      const n1 = r.node();
-      const n2 = r.node();
-      nodeCount++;
-      r.connect({ sources: [parent], sink: n1.key, map: (done) => (value) => done(value * 2) });
-      r.connect({ sources: [parent], sink: n2.key, map: (done) => (value) => done(value * 3) });
-      if (depth < MAX_DEPTH) {
-        recursivelyAddTwoChildren(n1.key, depth + 1);
-        recursivelyAddTwoChildren(n2.key, depth + 1);
-      } else {
-        r.sub(n1.key, () => subCalledCount++);
-        r.sub(n2.key, () => subCalledCount++);
-      }
-    };
-
-    const root = r.node("root");
-    recursivelyAddTwoChildren(root.key);
-
-    const t0 = performance.now();
-    for (let index = 0; index < 100; index++) {
-      r.pub({ root: 2 });
-    }
-
-    const t1 = performance.now();
-    console.log("Took", (t1 - t0).toFixed(4), "milliseconds to publish");
-
-    console.log({ subCalledCount, nodeCount });
-  });
-});
-*/

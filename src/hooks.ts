@@ -1,7 +1,10 @@
 import React from 'react'
-import { type CellDefinition, type SignalDefinition } from './realm'
 import { RealmContext } from './react'
+import { type SignalDefinition, type CellDefinition } from './nodes'
 
+/**
+ * @category Hooks
+ */
 export function useRealm() {
   const realm = React.useContext(RealmContext)
   if (realm === null) {
@@ -10,9 +13,12 @@ export function useRealm() {
   return realm
 }
 
+/**
+ * @category Hooks
+ */
 export function useCellValue<T>(cell: CellDefinition<T>) {
   const realm = useRealm()
-  realm.registerCell(cell)
+  realm.register(cell)
 
   const cb = React.useCallback(
     (c: () => void) => {
@@ -24,6 +30,9 @@ export function useCellValue<T>(cell: CellDefinition<T>) {
   return React.useSyncExternalStore(cb, () => realm.getValue(cell))
 }
 
+/**
+ * @category Hooks
+ */
 export function useCellValues<T1>(...cells: [CellDefinition<T1>]): [T1]; // prettier-ignore
 export function useCellValues<T1, T2>(...cells: [CellDefinition<T1>, CellDefinition<T2>]): [T1, T2]; // prettier-ignore
 export function useCellValues<T1, T2, T3>(...cells: [CellDefinition<T1>, CellDefinition<T2>, CellDefinition<T3>]): [T1, T2, T3]; // prettier-ignore
@@ -39,8 +48,11 @@ export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>
 export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(...cells: [CellDefinition<T1>, CellDefinition<T2>, CellDefinition<T3>, CellDefinition<T4>, CellDefinition<T5>, CellDefinition<T6>, CellDefinition<T7>, CellDefinition<T8>, CellDefinition<T9>, CellDefinition<T10>, CellDefinition<T11>, CellDefinition<T12>, CellDefinition<T13>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]; // prettier-ignore
 export function useCellValues(...cells: Array<CellDefinition<unknown>>): unknown[] {
   const realm = useRealm()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const initial = React.useMemo(() => realm.getValues(cells), [])
+  const initial = React.useMemo(
+    () => realm.getValues(cells),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
   const currentRef = React.useRef<unknown[]>(initial)
 
   const cb = React.useCallback(
@@ -57,6 +69,9 @@ export function useCellValues(...cells: Array<CellDefinition<unknown>>): unknown
   return React.useSyncExternalStore(cb, () => currentRef.current)
 }
 
+/**
+ * @category Hooks
+ */
 export function useSignal<T>(node: CellDefinition<T> | SignalDefinition<T>) {
   const realm = useRealm()
   realm.register(node)
@@ -68,6 +83,9 @@ export function useSignal<T>(node: CellDefinition<T> | SignalDefinition<T>) {
   )
 }
 
+/**
+ * @category Hooks
+ */
 export function useCell<T>(cell: CellDefinition<T>) {
   return [useCellValue(cell), useSignal(cell)] as const
 }

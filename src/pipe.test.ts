@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-confusing-void-expression */
 import { describe, it, expect, vi } from 'vitest'
-
-import { realm, Signal, Cell } from './realm'
 import { scan, debounceTime, filter, map, mapTo, withLatestFrom, onNext, throttleTime, once } from './operators'
 import { noop } from './utils'
+import { Realm, Signal, Cell } from '.'
 
 async function awaitCall(cb: () => unknown, delay: number) {
   return await new Promise((resolve) => {
@@ -16,7 +15,7 @@ async function awaitCall(cb: () => unknown, delay: number) {
 
 describe('pipe', () => {
   it('maps node values', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
 
     const b = r.pipe(
@@ -30,7 +29,7 @@ describe('pipe', () => {
   })
 
   it('filters node values', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
 
     const b = r.pipe(
@@ -49,7 +48,7 @@ describe('pipe', () => {
   })
 
   it('pulls values in withLatestFrom', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Cell('foo')
     const b = Cell('bar')
 
@@ -68,7 +67,7 @@ describe('pipe', () => {
   })
 
   it('maps to fixed value with mapTo', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
 
     const b = r.pipe(a, mapTo('bar'))
@@ -81,7 +80,7 @@ describe('pipe', () => {
   })
 
   it('accumulates with scan', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
 
     const b = r.pipe(
@@ -100,7 +99,7 @@ describe('pipe', () => {
   })
 
   it('onNext publishes only once, when the trigger signal emits', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
     const b = Signal<number>()
 
@@ -128,7 +127,7 @@ describe('pipe', () => {
   })
 
   it('once publishes only once', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
     const b = Signal<number>()
 
@@ -144,7 +143,7 @@ describe('pipe', () => {
   })
 
   it('throttleTime delays the execution', async () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
     const b = r.pipe(a, throttleTime(60))
     const spy = vi.fn()
@@ -162,7 +161,7 @@ describe('pipe', () => {
   })
 
   it('debounceTime bounces the execution', async () => {
-    const r = realm()
+    const r = new Realm()
     const a = Signal<number>()
     const b = r.pipe(a, debounceTime(60))
     const spy = vi.fn()
@@ -180,7 +179,7 @@ describe('pipe', () => {
   })
 
   it('combines node values', () => {
-    const r = realm()
+    const r = new Realm()
     const a = Cell<number>(0)
     const b = Cell<number>(0)
     const d = Cell<number>(6)
@@ -196,26 +195,10 @@ describe('pipe', () => {
     expect(spy).toHaveBeenCalledWith([3, 4, 7])
   })
 
-  it('derives node values', () => {
-    const r = realm()
-    const a = Cell<number>(0)
-    const b = r.derive(
-      r.pipe(
-        a,
-        map((val) => val * 2)
-      ),
-      2
-    )
-    const spy = vi.fn()
-    r.sub(b, spy)
-    r.pub(a, 3)
-    expect(spy).toHaveBeenCalledWith(6)
-  })
-
   it('supports value-less signals', () => {
     const a = Signal()
     const b = Cell(1)
-    const r = realm()
+    const r = new Realm()
 
     r.link(
       r.pipe(

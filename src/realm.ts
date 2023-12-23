@@ -1,156 +1,129 @@
 import { RefCount } from './RefCount'
 import { SetMap } from './SetMap'
-import { noop, tap } from './utils'
+import { type Comparator, type CellDefinition, type SignalDefinition, type Distinct } from './nodes'
+import { type O } from './operators'
+import { tap } from './utils'
 
-export type LongTuple<K> =
-  | []
-  | [K]
-  | [K, K]
-  | [K, K, K]
-  | [K, K, K, K]
-  | [K, K, K, K, K]
-  | [K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-  | [K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K, K]
-
+/**
+ * Represents a typed reference to a node in the Realm.
+ * @typeParam _T - The type of values that the node emits.
+ * @category Nodes
+ */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export interface RealmNode<_ = unknown> {
+export interface RealmNode<_T = unknown> {
   id: symbol
 }
 
 /**
- * A function which determines if two values are equal.
- * Implement custom comparators when the distinctUntilChanged operator needs to work on non-primitive objects.
- * @returns true if values should be considered equal.
+ * A reference to either a cell, signal, or a runtime constructed node.
+ * @typeParam T - The type of values that the node emits.
+ * @category Nodes
  */
-export type Comparator<T> = (current: T, next: T) => boolean
+export type NodeRef<T> = RealmNode<T> | CellDefinition<T> | SignalDefinition<T>
 
-export type Distinct<T> = boolean | Comparator<T>
-
-export interface CellDefinition<T> extends RealmNode<T> {
-  cellDefinition: true
-  distinct: Distinct<T>
-  initial: T
-  init: (realm: Realm) => void
-}
-
-export interface SignalDefinition<T> extends RealmNode<T> {
-  signalDefinition: true
-  distinct: Distinct<T>
-  init: (realm: Realm) => void
-}
-
-export type RN<T> = RealmNode<T> | CellDefinition<T> | SignalDefinition<T>
-
+/**
+ * A function that is called when a node emits a value.
+ * @typeParam T - The type of values that the node emits.
+ */
 export type Subscription<T> = (value: T) => unknown
 
+/**
+ * The resulting type of a subscription to a node. Can be used to cancel the subscription.
+ */
 export type UnsubscribeHandle = () => void
 
-type ProjectionFunc<T extends unknown[] = unknown[]> = (done: (...values: unknown[]) => void) => (...args: T) => void
+export type ProjectionFunc<T extends unknown[] = unknown[]> = (done: (...values: unknown[]) => void) => (...args: T) => void
 
-export interface RealmProjection<T extends unknown[] = unknown[]> {
+interface RealmProjection<T extends unknown[] = unknown[]> {
   sources: Set<symbol>
   pulls: Set<symbol>
   sink: symbol
   map: ProjectionFunc<T>
 }
 
-export interface RealmProjectionSpec<T extends unknown[] = unknown[]> {
-  sources: Array<RN<unknown>>
-  pulls?: Array<RN<unknown>>
-  sink: RN<unknown>
-  map: ProjectionFunc<T>
-}
-
-type NodesFromValuesRec<T extends unknown[], Acc extends unknown[]> = T extends [infer Head, ...infer Tail]
-  ? NodesFromValuesRec<Tail, [...Acc, Head extends unknown ? RealmNode<Head> : never]>
-  : Acc
-
-export type NodesFromValues<T extends unknown[]> = T extends unknown[] ? NodesFromValuesRec<T, []> : never
-
 /**
- * A comparator function to determine if two values are equal. Used by distinctUntilChanged  operator.
+ * A comparator function to determine if two values are equal, Works for primitive values.
+ * The default comparator for distinct nodes.
+ * @category Nodes
  */
 export function defaultComparator<T>(current: T, next: T) {
   return current === next
 }
 
-export type RealmGraph = SetMap<RealmProjection>
+interface ExecutionMap {
+  participatingNodes: symbol[]
+  pendingPulls: SetMap<symbol>
+  projections: SetMap<RealmProjection>
+  refCount: RefCount
+}
 
-export type Operator<I, OP> = (source: RN<I>, realm: Realm) => RealmNode<OP>
+/**
+ * A realm is a directed acyclic graph of nodes.
+ * The realm is responsible for initializing cells and signals based on their definitions.
+ * The actual node state is stored in the realm.
+ */
+export class Realm {
+  private readonly subscriptions = new SetMap<Subscription<unknown>>()
+  private readonly singletonSubscriptions = new Map<symbol, Subscription<unknown>>()
+  private readonly graph = new SetMap<RealmProjection>()
+  private readonly state = new Map<symbol, unknown>()
+  private readonly distinctNodes = new Map<symbol, Comparator<unknown>>()
+  private readonly executionMaps = new Map<symbol | symbol[], ExecutionMap>()
+  private readonly definitionRegistry = new Set<symbol>()
 
-export function realm(initialValues: Record<symbol, unknown> = {}) {
-  const subscriptions = new SetMap<Subscription<unknown>>()
-  const singletonSubscriptions = new Map<symbol, Subscription<unknown>>()
-  const graph: RealmGraph = new SetMap()
-  const state = new Map<symbol, unknown>()
-  for (const id of Object.getOwnPropertySymbols(initialValues)) {
-    state.set(id, initialValues[id])
+  constructor(initialValues: Record<symbol, unknown> = {}) {
+    for (const id of Object.getOwnPropertySymbols(initialValues)) {
+      this.state.set(id, initialValues[id])
+    }
   }
-  const distinctNodes = new Map<symbol, Comparator<unknown>>()
 
-  function cellInstance<T>(value: T, distinct: Distinct<T> = false, id = Symbol()): RealmNode<T> {
-    if (!state.has(id)) {
-      state.set(id, value)
+  private cellInstance<T>(value: T, distinct: Distinct<T> = false, id = Symbol()): RealmNode<T> {
+    if (!this.state.has(id)) {
+      this.state.set(id, value)
     }
 
     if (distinct !== false) {
-      distinctNodes.set(id, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
+      this.distinctNodes.set(id, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
     }
     return { id }
   }
 
-  function signalInstance<T>(distinct: Distinct<T> = false, id = Symbol()): RealmNode<T> {
+  signalInstance<T>(distinct: Distinct<T> = false, id = Symbol()): RealmNode<T> {
     if (distinct !== false) {
-      distinctNodes.set(id, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
+      this.distinctNodes.set(id, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
     }
     return { id }
   }
 
-  function sub<T>(node: RN<T>, subscription: Subscription<T>): UnsubscribeHandle {
-    register(node)
-    const nodeSubscriptions = subscriptions.getOrCreate(node.id)
+  sub<T>(node: NodeRef<T>, subscription: Subscription<T>): UnsubscribeHandle {
+    this.register(node)
+    const nodeSubscriptions = this.subscriptions.getOrCreate(node.id)
     nodeSubscriptions.add(subscription as Subscription<unknown>)
     return () => nodeSubscriptions.delete(subscription as Subscription<unknown>)
   }
 
-  function singletonSub<T>(node: RealmNode<T>, subscription: Subscription<T> | undefined): UnsubscribeHandle {
-    register(node)
+  singletonSub<T>(node: RealmNode<T>, subscription: Subscription<T> | undefined): UnsubscribeHandle {
+    this.register(node)
     const id = node.id
     if (subscription === undefined) {
-      singletonSubscriptions.delete(id)
+      this.singletonSubscriptions.delete(id)
     } else {
-      singletonSubscriptions.set(id, subscription as Subscription<unknown>)
+      this.singletonSubscriptions.set(id, subscription as Subscription<unknown>)
     }
-    return () => singletonSubscriptions.delete(id)
+    return () => this.singletonSubscriptions.delete(id)
   }
 
-  function resetSingletonSubs() {
-    singletonSubscriptions.clear()
+  resetSingletonSubs = () => {
+    this.singletonSubscriptions.clear()
   }
 
-  function subMultiple<T1>(nodes: [RN<T1>], subscription: Subscription<[T1]>): UnsubscribeHandle
-  function subMultiple<T1, T2>(nodes: [RN<T1>, RN<T2>], subscription: Subscription<[T1, T2]>): UnsubscribeHandle
-  function subMultiple<T1, T2, T3>(nodes: [RN<T1>, RN<T2>, RN<T3>], subscription: Subscription<[T1, T2, T3]>): UnsubscribeHandle
-  function subMultiple(nodes: Array<RN<unknown>>, subscription: Subscription<unknown[]>): UnsubscribeHandle
-  function subMultiple(nodes: Array<RN<unknown>>, subscription: Subscription<any>): UnsubscribeHandle {
-    const sink = signalInstance()
-    connect({
+  subMultiple<T1>(nodes: [NodeRef<T1>], subscription: Subscription<[T1]>): UnsubscribeHandle
+  subMultiple<T1, T2>(nodes: [NodeRef<T1>, NodeRef<T2>], subscription: Subscription<[T1, T2]>): UnsubscribeHandle
+  subMultiple<T1, T2, T3>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>], subscription: Subscription<[T1, T2, T3]>): UnsubscribeHandle
+  subMultiple(nodes: Array<NodeRef<unknown>>, subscription: Subscription<any>): UnsubscribeHandle
+  subMultiple(nodes: Array<NodeRef<unknown>>, subscription: Subscription<any>): UnsubscribeHandle {
+    const sink = this.signalInstance()
+    this.connect({
       map:
         (done) =>
         (...args) => {
@@ -159,17 +132,17 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
       sink,
       sources: nodes,
     })
-    return sub(sink, subscription)
+    return this.sub(sink, subscription)
   }
 
-  function calculateExecutionMap(ids: symbol[]) {
+  private calculateExecutionMap(ids: symbol[]) {
     const participatingNodes: symbol[] = []
     const visitedNodes = new Set()
     const pendingPulls = new SetMap<symbol>()
     const refCount = new RefCount()
     const projections = new SetMap<RealmProjection>()
 
-    function visit(id: symbol, insertIndex = 0) {
+    const visit = (id: symbol, insertIndex = 0) => {
       refCount.increment(id)
 
       if (visitedNodes.has(id)) {
@@ -180,7 +153,7 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
         insertIndex = Math.max(...Array.from(pulls).map((key) => participatingNodes.indexOf(key))) + 1
       })
 
-      graph.use(id, (sinkProjections) => {
+      this.graph.use(id, (sinkProjections) => {
         for (const projection of sinkProjections) {
           if (projection.sources.has(id)) {
             projections.getOrCreate(projection.sink).add(projection)
@@ -200,40 +173,36 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
     return { participatingNodes, pendingPulls, projections, refCount }
   }
 
-  type ExecutionMap = ReturnType<typeof calculateExecutionMap>
-
-  const executionMaps = new Map<symbol | symbol[], ExecutionMap>()
-
-  function getExecutionMap(ids: symbol[]) {
+  private getExecutionMap(ids: symbol[]) {
     let key: symbol | symbol[] = ids
     if (ids.length === 1) {
       key = ids[0]
-      const existingMap = executionMaps.get(key)
+      const existingMap = this.executionMaps.get(key)
       if (existingMap !== undefined) {
         return existingMap
       }
     } else {
-      for (const [key, existingMap] of executionMaps.entries()) {
+      for (const [key, existingMap] of this.executionMaps.entries()) {
         if (key instanceof Array && key.length === ids.length && key.every((id) => ids.includes(id))) {
           return existingMap
         }
       }
     }
 
-    const map = calculateExecutionMap(ids)
-    executionMaps.set(key, map)
+    const map = this.calculateExecutionMap(ids)
+    this.executionMaps.set(key, map)
     return map
   }
 
-  function pubIn(values: Record<symbol, unknown>) {
+  pubIn(values: Record<symbol, unknown>) {
     const ids = Reflect.ownKeys(values) as symbol[]
-    const map = getExecutionMap(ids)
+    const map = this.getExecutionMap(ids)
     const refCount = map.refCount.clone()
     const participatingNodeKeys = map.participatingNodes.slice()
-    const transientState = new Map<symbol, unknown>(state)
+    const transientState = new Map<symbol, unknown>(this.state)
 
-    function nodeWillNotEmit(key: symbol) {
-      graph.use(key, (projections) => {
+    const nodeWillNotEmit = (key: symbol) => {
+      this.graph.use(key, (projections) => {
         for (const { sources, sink } of projections) {
           if (sources.has(key)) {
             refCount.decrement(sink, () => {
@@ -253,15 +222,15 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
       const id = nextId
       let resolved = false
       const done = (value: unknown) => {
-        const dnRef = distinctNodes.get(id)
+        const dnRef = this.distinctNodes.get(id)
         if (dnRef !== undefined && dnRef(transientState.get(id), value)) {
           resolved = false
           return
         }
         resolved = true
         transientState.set(id, value)
-        if (state.has(id)) {
-          state.set(id, value)
+        if (this.state.has(id)) {
+          this.state.set(id, value)
         }
       }
       if (Object.prototype.hasOwnProperty.call(values, id)) {
@@ -277,19 +246,19 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
 
       if (resolved) {
         const value = transientState.get(id)
-        subscriptions.use(id, (nodeSubscriptions) => {
+        this.subscriptions.use(id, (nodeSubscriptions) => {
           for (const subscription of nodeSubscriptions) {
             subscription(value)
           }
         })
-        singletonSubscriptions.get(id)?.(value)
+        this.singletonSubscriptions.get(id)?.(value)
       } else {
         nodeWillNotEmit(id)
       }
     }
   }
 
-  function nodesToKeySet(nodes: RealmNode[]) {
+  private nodesToKeySet(nodes: RealmNode[]) {
     return new Set(nodes.map((s) => s.id))
   }
 
@@ -297,108 +266,113 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
    * A low-level utility that connects multiple nodes to a sink node with a map function.
    * The nodes can be active (sources) or passive (pulls).
    */
-  function connect<T extends unknown[] = unknown[]>({ sources, pulls = [], map, sink }: RealmProjectionSpec<T>) {
+  connect<T extends unknown[] = unknown[]>({
+    sources,
+    pulls = [],
+    map,
+    sink,
+  }: {
+    /**
+     * The source nodes that emit values to the sink node. The values will be passed as arguments to the map function.
+     */
+    sources: Array<NodeRef<unknown>>
+    /**
+     * The nodes which values will be pulled. The values will be passed as arguments to the map function.
+     */
+    pulls?: Array<NodeRef<unknown>>
+    /**
+     * The sink node that will receive the result of the map function.
+     */
+    sink: NodeRef<unknown>
+    /**
+     * The projection function that will be called when any of the source nodes emits.
+     */
+    map: ProjectionFunc<T>
+  }) {
     const dependency: RealmProjection<T> = {
       map,
-      pulls: nodesToKeySet(pulls),
-      sink: register(sink).id,
-      sources: nodesToKeySet(sources),
+      pulls: this.nodesToKeySet(pulls),
+      sink: this.register(sink).id,
+      sources: this.nodesToKeySet(sources),
     }
 
     for (const node of [...sources, ...pulls]) {
-      register(node)
-      graph.getOrCreate(node.id).add(dependency as RealmProjection<unknown[]>)
+      this.register(node)
+      this.graph.getOrCreate(node.id).add(dependency as RealmProjection<unknown[]>)
     }
 
-    executionMaps.clear()
+    this.executionMaps.clear()
   }
 
-  function pub(node: RN<unknown>): void
-  function pub<T1>(...args: [RN<T1>, T1]): void
-  function pub<T1, T2>(...args: [RN<T1>, T1, RN<T2>, T2]): void
-  function pub<T1, T2, T3>(...args: [RN<T1>, T1, RN<T2>, T2, RN<T3>, T3]): void
-  function pub<T1, T2, T3, T4>(...args: [RN<T1>, T1, RN<T2>, T2, RN<T3>, T3, T4]): void
-  function pub(...args: unknown[]): void {
+  pub(node: NodeRef<unknown>): void
+  pub<T1>(...args: [NodeRef<T1>, T1]): void
+  pub<T1, T2>(...args: [NodeRef<T1>, T1, NodeRef<T2>, T2]): void
+  pub<T1, T2, T3>(...args: [NodeRef<T1>, T1, NodeRef<T2>, T2, NodeRef<T3>, T3]): void
+  pub<T1, T2, T3, T4>(...args: [NodeRef<T1>, T1, NodeRef<T2>, T2, NodeRef<T3>, T3, T4]): void
+  pub(...args: unknown[]): void
+  pub(...args: unknown[]) {
     const map: Record<symbol, unknown> = {}
     for (let index = 0; index < args.length; index += 2) {
-      const node = args[index] as RN<unknown>
-      register(node)
+      const node = args[index] as NodeRef<unknown>
+      this.register(node)
       map[node.id] = args[index + 1]
     }
-    pubIn(map)
+    this.pubIn(map)
   }
 
-  type O<I, OP> = Operator<I, OP>
-
-  function combineOperators<T>(...o: []): (s: RN<T>) => RN<T> // prettier-ignore
-  function combineOperators<T, O1>(...o: [O<T, O1>]): (s: RN<T>) => RN<O1> // prettier-ignore
-  function combineOperators<T, O1, O2>(...o: [O<T, O1>, O<O1, O2>]): (s: RN<T>) => RN<O2> // prettier-ignore
-  function combineOperators<T, O1, O2, O3>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): (s: RN<T>) => RN<O3> // prettier-ignore
-  function combineOperators<T, O1, O2, O3, O4>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): (s: RN<T>) => RN<O4> // prettier-ignore
-  function combineOperators<T, O1, O2, O3, O4, O5>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): (s: RN<T>) => RN<O5> // prettier-ignore
-  function combineOperators<T, O1, O2, O3, O4, O5, O6>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): (s: RN<T>) => RN<O6> // prettier-ignore
-  function combineOperators<T, O1, O2, O3, O4, O5, O6, O7>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): (s: RN<T>) => RN<O7> // prettier-ignore
-  function combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: RN<T>) => RN<unknown>
-  function combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: RN<T>) => RN<unknown> {
-    return (source: RN<T>) => {
+  private combineOperators<T>(...o: []): (s: NodeRef<T>) => NodeRef<T> // prettier-ignore
+  private combineOperators<T, O1>(...o: [O<T, O1>]): (s: NodeRef<T>) => NodeRef<O1> // prettier-ignore
+  private combineOperators<T, O1, O2>(...o: [O<T, O1>, O<O1, O2>]): (s: NodeRef<T>) => NodeRef<O2> // prettier-ignore
+  private combineOperators<T, O1, O2, O3>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): (s: NodeRef<T>) => NodeRef<O3> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): (s: NodeRef<T>) => NodeRef<O4> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4, O5>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): (s: NodeRef<T>) => NodeRef<O5> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4, O5, O6>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): (s: NodeRef<T>) => NodeRef<O6> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4, O5, O6, O7>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): (s: NodeRef<T>) => NodeRef<O7> // prettier-ignore
+  private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown>
+  private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown> {
+    return (source: NodeRef<T>) => {
       for (const op of o) {
-        source = op(source, result)
+        source = op(source, this)
       }
       return source
     }
   }
 
-  function pipe<T> (s: RN<T>): RN<T> // prettier-ignore
-  function pipe<T, O1> (s: RN<T>, o1: O<T, O1>): RN<O1> // prettier-ignore
-  function pipe<T, O1, O2> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>]): RN<O2> // prettier-ignore
-  function pipe<T, O1, O2, O3> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): RN<O3> // prettier-ignore
-  function pipe<T, O1, O2, O3, O4> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): RN<O4> // prettier-ignore
-  function pipe<T, O1, O2, O3, O4, O5> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): RN<O5> // prettier-ignore
-  function pipe<T, O1, O2, O3, O4, O5, O6> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): RN<O6> // prettier-ignore
-  function pipe<T, O1, O2, O3, O4, O5, O6, O7> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): RN<O7> // prettier-ignore
-  function pipe<T>(source: RN<T>, ...operators: Array<O<unknown, unknown>>): RealmNode<unknown>
-  function pipe<T>(source: RN<T>, ...operators: Array<O<unknown, unknown>>): RealmNode<unknown> {
-    return combineOperators(...operators)(source)
+  pipe<T> (s: NodeRef<T>): NodeRef<T> // prettier-ignore
+  pipe<T, O1> (s: NodeRef<T>, o1: O<T, O1>): NodeRef<O1> // prettier-ignore
+  pipe<T, O1, O2> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>]): NodeRef<O2> // prettier-ignore
+  pipe<T, O1, O2, O3> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): NodeRef<O3> // prettier-ignore
+  pipe<T, O1, O2, O3, O4> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): NodeRef<O4> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): NodeRef<O5> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5, O6> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): NodeRef<O6> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5, O6, O7> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): NodeRef<O7> // prettier-ignore
+  pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): RealmNode<unknown>
+  pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): RealmNode<unknown> {
+    return this.combineOperators(...operators)(source)
   }
 
-  // function sinkTo<T>(s: RN<T>): RN<T>
-  function transformer<In>(...o: []): (s: RN<In>) => RN<In> // prettier-ignore
-  function transformer<In, Out>(...o: [O<In, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
-  function transformer<In, Out, O1>(...o: [O<In, O1>, O<O1, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
-  function transformer<In, Out, O1, O2>(...o: [O<In, O1>, O<O1, O2>, O<O2, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
-  function transformer<In, Out, O1, O2, O3>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
-  function transformer<In, Out, O1, O2, O3, O4>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
-  function transformer<In, Out, O1, O2, O3, O4, O5>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
-  function transformer<In, Out>(...operators: Array<O<unknown, unknown>>): (s: RN<Out>) => RN<In> {
-    return (sink: RN<In>) => {
-      return tap(signalInstance<In>(), (source) => {
-        link(pipe(source, ...operators), sink)
+  transformer<In>(...o: []): (s: NodeRef<In>) => NodeRef<In> // prettier-ignore
+  transformer<In, Out>(...o: [O<In, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
+  transformer<In, Out, O1>(...o: [O<In, O1>, O<O1, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
+  transformer<In, Out, O1, O2>(...o: [O<In, O1>, O<O1, O2>, O<O2, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
+  transformer<In, Out, O1, O2, O3>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
+  transformer<In, Out, O1, O2, O3, O4>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
+  transformer<In, Out, O1, O2, O3, O4, O5>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
+  transformer<In, Out>(...operators: Array<O<unknown, unknown>>): (s: NodeRef<Out>) => NodeRef<In>
+  transformer<In, Out>(...operators: Array<O<unknown, unknown>>): (s: NodeRef<Out>) => NodeRef<In> {
+    return (sink: NodeRef<In>) => {
+      return tap(this.signalInstance<In>(), (source) => {
+        this.link(this.pipe(source, ...operators), sink)
         return source
       })
     }
   }
 
-  function spread<T extends LongTuple<unknown>>(source: RN<T>, initialValues: T): NodesFromValues<T> {
-    return initialValues.map((initialValue, index) => {
-      // the distinct argument is hardcoded,
-      // figure out better API
-      return tap(cellInstance(initialValue, true), (sink) => {
-        connect({
-          map: (done) => (sourceValue) => {
-            done((sourceValue as T)[index])
-          },
-          sink,
-          sources: [source],
-        })
-      })
-    }) as unknown as NodesFromValues<T>
-  }
-
   /**
    * Links the output of a node to another node.
    */
-  function link<T>(source: RN<T>, sink: RN<T>) {
-    connect({
+  link<T>(source: NodeRef<T>, sink: NodeRef<T>) {
+    this.connect({
       map: (done) => (value) => {
         done(value)
       },
@@ -408,59 +382,29 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
   }
 
   /**
-   * Constructs a new stateful node from an existing source.
-   * The source can be node(s) that get transformed from a set of operators.
-   * @example
-   * ```tsx
-   * const a = r.node(1)
-   * const b = r.derive(r.pipe(a, r.o.map((v) => v * 2)), 2)
-   * ```
-   */
-  function derive<T>(source: RN<T>, initial: T) {
-    return tap(cellInstance(initial, true), (sink) => {
-      connect({
-        map: (done) => (value) => {
-          done(value)
-        },
-        sink,
-        sources: [source],
-      })
-    })
-  }
-
-  /**
    * Combines the values from multiple nodes into a single node
    * that emits an array of the latest values the nodes.
    * When one of the source nodes emits a value, the combined node
    * emits an array of the latest values from each node.
-   * @example
-   * ```tsx
-   * const a = r.node(1)
-   * const b = r.node(2)
-   * const ab = r.combine(a, b)
-   * r.sub(ab, ([a, b]) => console.log(a, b))
-   * r.pub(a, 2)
-   * r.pub(b, 3)
-   * ```
    */
-  function combine<T1> (...nodes: [RN<T1>]): RN<T1> // prettier-ignore
-  function combine<T1, T2> (...nodes: [RN<T1>, RN<T2>]): RN<[T1, T2]> // prettier-ignore
-  function combine<T1, T2, T3> (...nodes: [RN<T1>, RN<T2>, RN<T3>]): RN<[T1, T2, T3]> // prettier-ignore
-  function combine<T1, T2, T3, T4> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>]): RN<[T1, T2, T3, T4]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>]): RN<[T1, T2, T3, T4, T5]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>]): RN<[T1, T2, T3, T4, T5, T6]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6, T7> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>]): RN<[T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6, T7, T8> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>]): RN<[T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6, T7, T8, T9> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>]): RN<[T1, T2, T3, T4, T5, T6, T7, T8, T9]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>]): RN<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>]): RN<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>, RN<T12>, RN<T13>]): RN<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>, RN<T12>, RN<T13>, RN<T14>]): RN<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>, RN<T12>, RN<T13>, RN<T14>, RN<T15>]): RN<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]> // prettier-ignore
-  function combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16> (...nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>, RN<T12>, RN<T13>, RN<T14>, RN<T15>, RN<T16>]): RN<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]> // prettier-ignore
-  function combine(...sources: Array<RN<unknown>>): RN<unknown> {
-    return tap(signalInstance(), (sink) => {
-      connect({
+  combine<T1> (...nodes: [NodeRef<T1>]): NodeRef<T1> // prettier-ignore
+  combine<T1, T2> (...nodes: [NodeRef<T1>, NodeRef<T2>]): NodeRef<[T1, T2]> // prettier-ignore
+  combine<T1, T2, T3> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): NodeRef<[T1, T2, T3]> // prettier-ignore
+  combine<T1, T2, T3, T4> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): NodeRef<[T1, T2, T3, T4]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): NodeRef<[T1, T2, T3, T4, T5]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]): NodeRef<[T1, T2, T3, T4, T5, T6]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]> // prettier-ignore
+  combine(...sources: Array<NodeRef<unknown>>): NodeRef<unknown> {
+    return tap(this.signalInstance(), (sink) => {
+      this.connect({
         map:
           (done) =>
           (...args) => {
@@ -476,68 +420,62 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
    * Gets the current value of a node. The node must be stateful.
    * @param node - the node instance.
    */
-  function getValue<T>(node: RN<T>): T {
-    register(node)
-    return state.get(node.id) as T
+  getValue<T>(node: NodeRef<T>): T {
+    this.register(node)
+    return this.state.get(node.id) as T
   }
 
-  /**
-   * Gets the current value of a node. The node must be stateful.
-   * @param node - the node instance.
-   */
-  function getValues<T1>(nodes: [RN<T1>]): [T1] // prettier-ignore
-  function getValues<T1, T2>(nodes: [RN<T1>, RN<T2>]): [T1, T2] // prettier-ignore
-  function getValues<T1, T2, T3>(nodes: [RN<T1>, RN<T2>, RN<T3>]): [T1, T2, T3] // prettier-ignore
-  function getValues<T1, T2, T3, T4>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>]): [T1, T2, T3, T4]; // prettier-ignore
-  function getValues<T1, T2, T3, T4, T5>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>]): [T1, T2, T3, T4, T5]; // prettier-ignore
-  function getValues<T1, T2, T3, T4, T5, T6>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>]): [T1, T2, T3, T4, T5, T6]; // prettier-ignore
-  function getValues<T1, T2, T3, T4, T5, T6, T7>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>]): [T1, T2, T3, T4, T5, T6, T7]; // prettier-ignore
-  function getValues<T1, T2, T3, T4, T5, T6, T7, T8>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>]): [T1, T2, T3, T4, T5, T6, T7, T8]; // prettier-ignore
-  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9]; // prettier-ignore
-  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]; // prettier-ignore
-  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]; // prettier-ignore
-  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>, RN<T12>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]; // prettier-ignore
-  function getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(nodes: [RN<T1>, RN<T2>, RN<T3>, RN<T4>, RN<T5>, RN<T6>, RN<T7>, RN<T8>, RN<T9>, RN<T10>, RN<T11>, RN<T12>, RN<T13>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]; // prettier-ignore
-  function getValues(nodes: Array<RN<unknown>>): unknown[]
-  function getValues(nodes: Array<RN<unknown>>): unknown[] {
+  getValues<T1>(nodes: [NodeRef<T1>]): [T1] // prettier-ignore
+  getValues<T1, T2>(nodes: [NodeRef<T1>, NodeRef<T2>]): [T1, T2] // prettier-ignore
+  getValues<T1, T2, T3>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): [T1, T2, T3] // prettier-ignore
+  getValues<T1, T2, T3, T4>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): [T1, T2, T3, T4]; // prettier-ignore
+  getValues<T1, T2, T3, T4, T5>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): [T1, T2, T3, T4, T5]; // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]): [T1, T2, T3, T4, T5, T6]; // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]): [T1, T2, T3, T4, T5, T6, T7]; // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]): [T1, T2, T3, T4, T5, T6, T7, T8]; // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9]; // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]; // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]; // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]; // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]; // prettier-ignore
+  getValues<T>(nodes: Array<NodeRef<T>>): unknown[]
+  getValues(nodes: Array<NodeRef<unknown>>) {
     return nodes.map((node) => {
-      register(node)
-      return state.get(node.id)
+      this.register(node)
+      return this.state.get(node.id)
     })
   }
 
-  const definitionRegistry = new Set<symbol>()
-
-  function registerCell<T>({ id, initial, distinct, init }: CellDefinition<T>): RealmNode<T> {
-    if (!definitionRegistry.has(id)) {
-      definitionRegistry.add(id)
-      init(result)
-      return cellInstance(initial, distinct, id)
+  private registerCell<T>({ id, initial, distinct, init }: CellDefinition<T>): RealmNode<T> {
+    if (!this.definitionRegistry.has(id)) {
+      this.definitionRegistry.add(id)
+      init(this)
+      return this.cellInstance(initial, distinct, id)
     }
     return { id }
   }
 
-  function registerSignal<T>({ id, distinct, init }: SignalDefinition<T>): RealmNode<T> {
-    if (!definitionRegistry.has(id)) {
-      definitionRegistry.add(id)
-      init(result)
-      return signalInstance(distinct, id)
+  private registerSignal<T>({ id, distinct, init }: SignalDefinition<T>): RealmNode<T> {
+    if (!this.definitionRegistry.has(id)) {
+      this.definitionRegistry.add(id)
+      init(this)
+      return this.signalInstance(distinct, id)
     }
     return { id }
   }
 
-  function register(node: RN<unknown>) {
+  register(node: NodeRef<unknown>) {
     if ('cellDefinition' in node) {
-      return registerCell(node)
+      return this.registerCell(node)
     } else if ('signalDefinition' in node) {
-      return registerSignal(node)
+      return this.registerSignal(node)
     }
 
     return node
   }
 
-  function changeWith<T, K>(cell: CellDefinition<T>, source: RN<K>, map: (cellValue: T, signalValue: K) => T) {
-    connect({
+  changeWith<T, K>(cell: CellDefinition<T>, source: NodeRef<K>, map: (cellValue: T, signalValue: K) => T) {
+    this.connect({
       sources: [source],
       pulls: [cell],
       sink: cell,
@@ -546,60 +484,4 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
       },
     })
   }
-
-  const result = {
-    changeWith,
-    register,
-    registerCell,
-    registerSignal,
-    combine,
-    connect,
-    derive,
-    getValue,
-    getValues,
-    link,
-    pipe,
-    transformer,
-    pub,
-    pubIn,
-    resetSingletonSubs,
-    singletonSub,
-    spread,
-    sub,
-    subMultiple,
-    signalInstance,
-    cellInstance,
-  }
-  return result
 }
-
-export function Cell<T>(value: T, distinct: Distinct<T> = false, init: (r: Realm) => void = noop): CellDefinition<T> {
-  const id = Symbol()
-  return {
-    cellDefinition: true,
-    id,
-    distinct,
-    init,
-    initial: value,
-  }
-}
-
-export function Signal<T>(distinct: Distinct<T> = false, init: (r: Realm) => void = noop): SignalDefinition<T> {
-  return {
-    signalDefinition: true,
-    id: Symbol(),
-    distinct,
-    init,
-  }
-}
-
-export function Action(init: (r: Realm) => void = noop): SignalDefinition<void> {
-  return {
-    signalDefinition: true,
-    id: Symbol(),
-    distinct: false,
-    init,
-  }
-}
-
-export type Realm = ReturnType<typeof realm>

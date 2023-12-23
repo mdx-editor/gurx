@@ -1,17 +1,31 @@
 import React from 'react'
-import { type Realm, realm } from './realm'
+import { Realm } from './realm'
 
 export const RealmContext = React.createContext<Realm | null>(null)
 
-export interface RealmProviderProps {
+/**
+ * @category React Components
+ */
+export function RealmProvider({
+  children,
+  initWith,
+  updateWith = {},
+}: {
+  /**
+   * The children to render
+   */
   children: React.ReactNode
+  /**
+   * The initial values to set in the realm
+   */
   initWith?: Record<string, unknown>
+  /**
+   * The values to update in the realm on each render
+   */
   updateWith?: Record<string, unknown>
-}
-
-export const RealmProvider: React.FC<RealmProviderProps> = ({ children, initWith, updateWith = {} }) => {
+}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const theRealm = React.useMemo(() => realm(initWith), [])
+  const theRealm = React.useMemo(() => new Realm(initWith), [])
 
   React.useEffect(() => {
     theRealm.pubIn(updateWith)
