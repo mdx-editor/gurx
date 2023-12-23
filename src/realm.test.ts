@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, expectTypeOf } from 'vitest'
 import { realm, Cell, type Realm, Signal, Action } from './realm'
-import { filter, map } from './operators'
+import { filter, handlePromise, map } from './operators'
 
 describe('gurx cells/signals', () => {
   let r: Realm
@@ -50,7 +50,7 @@ describe('gurx cells/signals', () => {
     expect(r.getValue(a)).toEqual(3)
   })
 
-  it('supports init function for Signals', () => {
+  it('supports init function for signals', () => {
     const a = Cell(2)
     const b = Signal(true, (r) => {
       r.link(b, a)
@@ -59,7 +59,7 @@ describe('gurx cells/signals', () => {
     expect(r.getValue(a)).toEqual(3)
   })
 
-  it('supports init function for Actions', () => {
+  it('supports init function for actions', () => {
     const a = Cell(2)
     const b = Action((r) => {
       r.pub(a, 3)
@@ -509,6 +509,68 @@ describe('singleton subscription', () => {
     unsub()
     r.pub(a, 3)
     expect(spy1).toHaveBeenCalledTimes(1)
+  })
+
+  it('supports changing a cell value', () => {
+    const r = realm()
+    const a = Cell(1)
+    const b = Signal<number>()
+
+    r.changeWith(a, b, (a, b) => a + b)
+    r.pub(b, 2)
+    expect(r.getValue(a)).toEqual(3)
+    r.pub(b, 2)
+    expect(r.getValue(a)).toEqual(5)
+  })
+
+  it('supports creating transformer nodes', () => {
+    const r = realm()
+    const a = Cell('foo')
+    const s = Signal<number>()
+    const b = r.transformer(
+      map((x: number) => x + 1),
+      map((x) => `foo${x}`)
+    )
+
+    r.link(s, b(a))
+    r.pub(s, 2)
+    expect(r.getValue(a)).toEqual('foo3')
+  })
+
+  it('supports promise resolution', async () => {
+    const r = realm()
+    const a = Cell<'loading' | 'loaded' | 'error' | 'none'>('none')
+    const s = Signal<number>()
+
+    r.link(
+      r.pipe(
+        s,
+        map(async (val) => {
+          return await new Promise<string>((resolve, reject) => {
+            if (val === 2) {
+              resolve('loaded')
+            } else {
+              // eslint-disable-next-line prefer-promise-reject-errors
+              reject('error')
+            }
+          })
+        }),
+        handlePromise(
+          (value) => value,
+          () => 'loading',
+          (error) => error
+        )
+      ),
+      a
+    )
+
+    r.pub(s, 2)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(r.getValue(a)).toEqual('loaded')
+
+    r.pub(s, 3)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(r.getValue(a)).toEqual('error')
   })
 })
 

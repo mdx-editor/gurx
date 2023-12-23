@@ -210,3 +210,28 @@ export function onNext<I, O>(bufNode: RN<O>) {
     return sink
   }) as Operator<I, [I, O]>
 }
+
+export function handlePromise<I, OutSuccess, OnLoad, OutError>(
+  onSuccess: (value: I) => OutSuccess,
+  onLoad: () => OnLoad,
+  onError: (error: unknown) => OutError
+) {
+  return ((source, { signalInstance, sub, pub }) => {
+    const sink = signalInstance<OutSuccess | OnLoad | OutError>()
+    sub(source, (value) => {
+      if (value instanceof Promise) {
+        pub(sink, onLoad())
+        value
+          .then((value) => {
+            pub(sink, onSuccess(value))
+          })
+          .catch((error) => {
+            pub(sink, onError(error))
+          })
+      } else {
+        pub(sink, onSuccess(value))
+      }
+    })
+    return sink
+  }) as Operator<I | Promise<I>, OutSuccess | OnLoad | OutError>
+}

@@ -330,6 +330,24 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
 
   type O<I, OP> = Operator<I, OP>
 
+  function combineOperators<T>(...o: []): (s: RN<T>) => RN<T> // prettier-ignore
+  function combineOperators<T, O1>(...o: [O<T, O1>]): (s: RN<T>) => RN<O1> // prettier-ignore
+  function combineOperators<T, O1, O2>(...o: [O<T, O1>, O<O1, O2>]): (s: RN<T>) => RN<O2> // prettier-ignore
+  function combineOperators<T, O1, O2, O3>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): (s: RN<T>) => RN<O3> // prettier-ignore
+  function combineOperators<T, O1, O2, O3, O4>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): (s: RN<T>) => RN<O4> // prettier-ignore
+  function combineOperators<T, O1, O2, O3, O4, O5>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): (s: RN<T>) => RN<O5> // prettier-ignore
+  function combineOperators<T, O1, O2, O3, O4, O5, O6>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): (s: RN<T>) => RN<O6> // prettier-ignore
+  function combineOperators<T, O1, O2, O3, O4, O5, O6, O7>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): (s: RN<T>) => RN<O7> // prettier-ignore
+  function combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: RN<T>) => RN<unknown>
+  function combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: RN<T>) => RN<unknown> {
+    return (source: RN<T>) => {
+      for (const op of o) {
+        source = op(source, result)
+      }
+      return source
+    }
+  }
+
   function pipe<T> (s: RN<T>): RN<T> // prettier-ignore
   function pipe<T, O1> (s: RN<T>, o1: O<T, O1>): RN<O1> // prettier-ignore
   function pipe<T, O1, O2> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>]): RN<O2> // prettier-ignore
@@ -338,11 +356,26 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
   function pipe<T, O1, O2, O3, O4, O5> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): RN<O5> // prettier-ignore
   function pipe<T, O1, O2, O3, O4, O5, O6> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): RN<O6> // prettier-ignore
   function pipe<T, O1, O2, O3, O4, O5, O6, O7> (s: RN<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): RN<O7> // prettier-ignore
+  function pipe<T>(source: RN<T>, ...operators: Array<O<unknown, unknown>>): RealmNode<unknown>
   function pipe<T>(source: RN<T>, ...operators: Array<O<unknown, unknown>>): RealmNode<unknown> {
-    for (const operator of operators) {
-      source = operator(source, result)
+    return combineOperators(...operators)(source)
+  }
+
+  // function sinkTo<T>(s: RN<T>): RN<T>
+  function transformer<In>(...o: []): (s: RN<In>) => RN<In> // prettier-ignore
+  function transformer<In, Out>(...o: [O<In, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
+  function transformer<In, Out, O1>(...o: [O<In, O1>, O<O1, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
+  function transformer<In, Out, O1, O2>(...o: [O<In, O1>, O<O1, O2>, O<O2, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
+  function transformer<In, Out, O1, O2, O3>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
+  function transformer<In, Out, O1, O2, O3, O4>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
+  function transformer<In, Out, O1, O2, O3, O4, O5>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, Out>]): (s: RN<Out>) => RN<In> // prettier-ignore
+  function transformer<In, Out>(...operators: Array<O<unknown, unknown>>): (s: RN<Out>) => RN<In> {
+    return (sink: RN<In>) => {
+      return tap(signalInstance<In>(), (source) => {
+        link(pipe(source, ...operators), sink)
+        return source
+      })
     }
-    return source
   }
 
   function spread<T extends LongTuple<unknown>>(source: RN<T>, initialValues: T): NodesFromValues<T> {
@@ -364,7 +397,7 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
   /**
    * Links the output of a node to another node.
    */
-  function link<T>(source: RealmNode<T>, sink: RealmNode<T>) {
+  function link<T>(source: RN<T>, sink: RN<T>) {
     connect({
       map: (done) => (value) => {
         done(value)
@@ -383,7 +416,7 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
    * const b = r.derive(r.pipe(a, r.o.map((v) => v * 2)), 2)
    * ```
    */
-  function derive<T>(source: RealmNode<T>, initial: T) {
+  function derive<T>(source: RN<T>, initial: T) {
     return tap(cellInstance(initial, true), (sink) => {
       connect({
         map: (done) => (value) => {
@@ -503,7 +536,19 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
     return node
   }
 
+  function changeWith<T, K>(cell: CellDefinition<T>, source: RN<K>, map: (cellValue: T, signalValue: K) => T) {
+    connect({
+      sources: [source],
+      pulls: [cell],
+      sink: cell,
+      map: (done) => (signalValue: K, cellValue: T) => {
+        done(map(cellValue, signalValue))
+      },
+    })
+  }
+
   const result = {
+    changeWith,
     register,
     registerCell,
     registerSignal,
@@ -514,6 +559,7 @@ export function realm(initialValues: Record<symbol, unknown> = {}) {
     getValues,
     link,
     pipe,
+    transformer,
     pub,
     pubIn,
     resetSingletonSubs,

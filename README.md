@@ -1,30 +1,66 @@
-# React + TypeScript + Vite
+# Push-based state management 
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Works with React, can be used as standalone library, useful when you test your state management logic.
 
-Currently, two official plugins are available:
+Gurx lets you specify your application state management logic as stateful nodes (cells), stateless nodes (signals), and dependencies and transformations between the values that flow through them. In the react world, a provider and a set of hooks allow you to access the values and to push new values in the given cells / signals.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Under the hood, the cells and signals are arranged in a graph (a Realm) based on the dependencies and transformations you specify. When a cell or signal changes, the graph is traversed to find all the cells and signals that depend on the changed value. The new values are then pushed through the graph, and the components that depend on them are re-rendered.
 
-## Expanding the ESLint configuration
+## Hello world
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+```tsx
+import { map, Signal, Cell, RealmProvider, useCellValue, useSignal } from '.'
 
-- Configure the top-level `parserOptions` property like this:
+// Create a cell with an initial value, and flag that says it should act as distinct. 
+const cell$ = Cell('foo', true)
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
+// A distinct signal that will update the cell when its value changes. 
+// The second argument is a function that takes a Realm instance and allows you to link the signal to other cells and signals. 
+const signal$ = Signal<number>(true, (r) => {
+  r.link(
+    r.pipe(
+      signal$,
+      map((signal) => `Signal${signal}`)
+    ),
+    cell$
+  )
+})
+
+const Comp = () => {
+  const cell = useCellValue(cell$)
+  const pushSignal = useSignal(signal$)
+
+  return (
+    <div>
+      <button
+        onClick={() => {
+          pushSignal(1)
+        }}
+      >
+        click
+      </button>
+
+      {cell}
+    </div>
+  )
+}
+
+export const App = () => {
+  return (
+    <RealmProvider>
+      <Comp />
+    </RealmProvider>
+  )
 }
 ```
 
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+## Operators 
+
+Gurx exports a set of operators like `map`, `filter`, `mapTo`, etc. The realm instance also exposes a `pipe` method that allows you to chain operators together, a combine function that lets you combine multiple signals into one, and a `link` method that allows you to link a signal to a cell or another signal.
+
+## Hooks 
+
+// TODO
+
+## More
+See the tests for more examples. 
