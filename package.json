@@ -9,7 +9,7 @@
     "test": "vitest",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "typecheck": "tsc --noEmit",
-    "docs:build": "typedoc --excludePrivate --out docs src/index.ts"
+    "docs:build": "typedoc --excludePrivate --out docs --name 'Gurx' src/index.ts"
   },
   "dependencies": {
     "react": "^18.2.0",

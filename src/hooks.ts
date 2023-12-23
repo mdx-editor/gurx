@@ -3,6 +3,9 @@ import { RealmContext } from './react'
 import { type SignalDefinition, type CellDefinition } from './nodes'
 
 /**
+ * Returns a direct reference to the current realm. Use with caution.
+ * Prefer {@link useCellValue} and {@link useSignal}.
+ * If you need to specify dependencies between cells, use the initialization function of the cells/signals.
  * @category Hooks
  */
 export function useRealm() {
@@ -14,6 +17,18 @@ export function useRealm() {
 }
 
 /**
+ * Returns the current value of the cell.
+ * The component will be re-rendered when the cell value changes.
+ * @param cell - The cell to use.
+ * @example
+ * ```tsx
+ * const cell$ = Cell(0)
+ * //...
+ * function MyComponent() {
+ *   const cell = useCellValue(cell$)
+ *   return <div>{cell}</div>
+ * }
+ * ```
  * @category Hooks
  */
 export function useCellValue<T>(cell: CellDefinition<T>) {
@@ -84,8 +99,15 @@ export function useSignal<T>(node: CellDefinition<T> | SignalDefinition<T>) {
 }
 
 /**
+ * Returns a tuple of the current value of the cell and a publisher function.
+ * The component will be re-rendered when the cell value changes.
+ *
+ * @remarks If you need just a publisher function, use {@link useSignal}.
+ *
+ * @param cell - The cell to use.
+ * @returns A tuple of the current value of the cell and a publisher function.
  * @category Hooks
  */
 export function useCell<T>(cell: CellDefinition<T>) {
-  return [useCellValue(cell), useSignal(cell)] as const
+  return [useCellValue(cell), useSignal<T>(cell)] as const
 }
