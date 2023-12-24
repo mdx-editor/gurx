@@ -4,8 +4,8 @@ import { type NodeRef } from './realm'
 
 /**
  * Returns a direct reference to the current realm. Use with caution.
- * Prefer {@link useCellValue} and {@link useSignal}.
- * If you need to specify dependencies between cells, use the initialization function of the cells/signals.
+ *
+ * If possible, design your logic in a reactive manner, and use {@link useCellValue} and {@link useSignal} to access the output of the realm.
  * @category Hooks
  */
 export function useRealm() {
@@ -17,9 +17,14 @@ export function useRealm() {
 }
 
 /**
- * Returns the current value of the cell.
- * The component will be re-rendered when the cell value changes.
+ * Gets the current value of the cell. The component is re-rendered when the cell value changes.
+ *
+ * @remark If you need the values of multiple nodes from the realm and those nodes might change in the same computiation, you can `useCellValues` to reduce re-renders.
+ *
+ * @returns The current value of the cell.
+ * @typeParam T - the type of the value that the cell caries.
  * @param cell - The cell to use.
+ *
  * @example
  * ```tsx
  * const cell$ = Cell(0)
@@ -46,7 +51,20 @@ export function useCellValue<T>(cell: NodeRef<T>) {
 }
 
 /**
+ * Retreives the values of the passed cells.
+ * The component is re-rendered each time any of the referred cells changes its value.
  * @category Hooks
+ *
+ * @example
+ * ```tsx
+ * const foo$ = Cell('foo')
+ * const bar$ = Cell('bar')
+ * //...
+ * function MyComponent() {
+ *   const [foo, bar] = useCellValues(foo$, bar$)
+ *   return <div>{foo} - {bar}</div>
+ * }
+ * ```
  */
 export function useCellValues<T1>(...cells: [NodeRef<T1>]): [T1]; // prettier-ignore
 export function useCellValues<T1, T2>(...cells: [NodeRef<T1>, NodeRef<T2>]): [T1, T2]; // prettier-ignore
@@ -85,6 +103,18 @@ export function useCellValues(...cells: Array<NodeRef<unknown>>): unknown[] {
 }
 
 /**
+ * Returns a function that publishes its passed argument into the specified node.
+ * @example
+ * ```tsx
+ * const signal$ = Signal<number>(true, (r) => {
+ *  r.sub(signal$, (value) => console.log(`${value} was published in the signal`))
+ * })
+ * //...
+ * function MyComponent() {
+ *  const publishIntoSignal = useSignal(signal$);
+ *  return <button onClick={() => publishIntoSignal(2)}>Push a value into the signal</button>
+ * }
+ * ```
  * @category Hooks
  */
 export function useSignal<T>(node: NodeRef<T>) {
@@ -99,7 +129,7 @@ export function useSignal<T>(node: NodeRef<T>) {
 }
 
 /**
- * Returns a tuple of the current value of the cell and a publisher function.
+ * Returns a tuple of the current value of the cell and a publisher function (similar to useState).
  * The component will be re-rendered when the cell value changes.
  *
  * @remarks If you need just a publisher function, use {@link useSignal}.

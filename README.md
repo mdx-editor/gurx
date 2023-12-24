@@ -37,7 +37,7 @@ Each cell/signal has a single instance in a realm. If you subscribe to a cell/si
 ```tsx
 import { map, Signal, Cell, RealmProvider, useCellValue, useSignal } from '.'
 
-// Create a cell with an initial value, and flag that says it should act as distinct. 
+// Create a cell with an initial value. The second parameter marks the cell as a distinct.
 const cell$ = Cell('foo', true)
 
 // A distinct signal that will update the cell when its value changes. 

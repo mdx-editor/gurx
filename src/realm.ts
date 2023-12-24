@@ -4,7 +4,7 @@ import { type O } from './operators'
 import { tap, noop } from './utils'
 
 /**
- * Represents a typed reference to a node.
+ * A typed reference to a node.
  * @typeParam T - The type of values that the node emits.
  * @category Nodes
  */
@@ -31,8 +31,7 @@ interface RealmProjection<T extends unknown[] = unknown[]> {
 }
 
 /**
- * A comparator function to determine if two values are equal, Works for primitive values.
- * The default comparator for distinct nodes.
+ * The default comparator for distinct nodes - a function to determine if two values are equal. Works for primitive values.
  * @category Nodes
  */
 export function defaultComparator<T>(current: T, next: T) {
@@ -64,25 +63,29 @@ export type Comparator<T> = (previous: T | undefined, current: T) => boolean
  */
 export type Distinct<T> = boolean | Comparator<T>
 
+/**
+ * A node initializer function.
+ */
+export type NodeInit<T> = (r: Realm, node$: NodeRef<T>) => void
+
 interface CellDefinition<T> {
   type: 'cell'
   distinct: Distinct<T>
   initial: T
-  init: (realm: Realm) => void
+  init: NodeInit<T>
 }
 
 interface SignalDefinition<T> {
   type: 'signal'
   distinct: Distinct<T>
-  init: (realm: Realm) => void
+  init: NodeInit<T>
 }
 
 const nodeDefs$$ = new Map<symbol, CellDefinition<any> | SignalDefinition<any>>()
 
 /**
- * A realm is a directed acyclic graph of nodes.
- * The realm is responsible for initializing cells and signals based on their definitions.
- * The actual node state is stored in the realm.
+ * The realm is the actual "engine" that orchestrates any cells and signals that it touches. The realm also stores the state and the dependencies of the nodes that are referred through it.
+ *
  */
 export class Realm {
   private readonly subscriptions = new SetMap<Subscription<unknown>>()
@@ -93,23 +96,41 @@ export class Realm {
   private readonly executionMaps = new Map<symbol | symbol[], ExecutionMap>()
   private readonly definitionRegistry = new Set<symbol>()
 
+  /**
+   * Creates a new realm.
+   * @param initialValues - the initial cell values that will populate the realm.
+   * Those values will not trigger a recomputation cycle, and will overwrite the initial values specified for each cell.
+   */
   constructor(initialValues: Record<symbol, unknown> = {}) {
     for (const id of Object.getOwnPropertySymbols(initialValues)) {
       this.state.set(id, initialValues[id])
     }
   }
 
-  private cellInstance<T>(value: T, distinct: Distinct<T> = false, node = Symbol()): NodeRef<T> {
+  /**
+   * Creates or resolves an existing cell instance in the realm. Useful as a joint point when building your own operators.
+   * @returns a reference to the cell.
+   * @param value - the initial value of the cell
+   * @param distinct - false by default. Pass true to mark the cell as a distinct one, or a custom comparator in case of a non-primitive value.
+   * @param node - optional, a reference to a cell. If the cell has not been touched in the realm before, the realm will instantiate a reference to it. If it's registered already, the function will return the reference.
+   */
+  cellInstance<T>(value: T, distinct: Distinct<T> = false, node = Symbol()): NodeRef<T> {
     if (!this.state.has(node)) {
       this.state.set(node, value)
+      if (distinct !== false) {
+        this.distinctNodes.set(node, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
+      }
     }
 
-    if (distinct !== false) {
-      this.distinctNodes.set(node, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
-    }
     return node as NodeRef<T>
   }
 
+  /**
+   * Creates or resolves an existing signal instance in the realm. Useful as a joint point when building your own operators.
+   * @returns a reference to the signal.
+   * @param distinct - false by default. Pass true to mark the signal as a distinct one, or a custom comparator in case of a non-primitive value.
+   * @param node - optional, a reference to a signal. If the signal has not been touched in the realm before, the realm will instantiate a reference to it. If it's registered already, the function will return the reference.
+   */
   signalInstance<T>(distinct: Distinct<T> = false, node = Symbol()): NodeRef<T> {
     if (distinct !== false) {
       this.distinctNodes.set(node, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
@@ -117,6 +138,22 @@ export class Realm {
     return node as NodeRef<T>
   }
 
+  /**
+   * Subscribes to the values published in the referred node.
+   * @param node - the cell/signal to subscribe to.
+   * @param subscription - the callback to execute when the node receives a new value.
+   * @returns a function that, when called, will cancel the subscription.
+   *
+   * @example
+   * ```ts
+   * const signal$ = Signal<number>()
+   * const r = new Realm()
+   * const unsub = r.sub(signal$, console.log)
+   * r.pub(signal$, 2)
+   * unsub()
+   * r.pub(signal$, 3)
+   * ```
+   */
   sub<T>(node: NodeRef<T>, subscription: Subscription<T>): UnsubscribeHandle {
     this.register(node)
     const nodeSubscriptions = this.subscriptions.getOrCreate(node)
@@ -124,6 +161,23 @@ export class Realm {
     return () => nodeSubscriptions.delete(subscription as Subscription<unknown>)
   }
 
+  /**
+   * Subscribes exclusively to values in the referred node.
+   * Calling this multiple times on a single node will remove the previous subscription created through `singletonSub`.
+   * Subscriptions created through `sub` are not affected.
+   * @returns a function that, when called, will cancel the subscription.
+   *
+   * @example
+   * ```ts
+   * const signal$ = Signal<number>()
+   * const r = new Realm()
+   * // console.log will run only once.
+   * r.singletonSub(signal$, console.log)
+   * r.singletonSub(signal$, console.log)
+   * r.singletonSub(signal$, console.log)
+   * r.pub(signal$, 2)
+   * ```
+   */
   singletonSub<T>(node: NodeRef<T>, subscription: Subscription<T> | undefined): UnsubscribeHandle {
     this.register(node)
     if (subscription === undefined) {
@@ -134,10 +188,32 @@ export class Realm {
     return () => this.singletonSubscriptions.delete(node)
   }
 
-  resetSingletonSubs = () => {
+  /**
+   * Clears all exclusive subscriptions.
+   */
+  resetSingletonSubs() {
     this.singletonSubscriptions.clear()
   }
 
+  /**
+   * Subscribes to multiple nodes at once. If any of the nodes emits a value, the subscription will be called with an array of the latest values from each node.
+   * If the nodes change within a single execution cycle, the subscription will be called only once with the final node values.
+   *
+   * @example
+   * ```ts
+   * const foo$ = Cell('foo')
+   * const bar$ = Cell('bar')
+   *
+   * const trigger$ = Signal<number>(true, (r) => {
+   *   r.link(r.pipe(trigger$, map(i => `foo${i}`)), foo$)
+   *   r.link(r.pipe(trigger$, map(i => `bar${i}`)), bar$)
+   * })
+   *
+   * const r = new Realm()
+   * r.subMultiple([foo$, bar$], ([foo, bar]) => console.log(foo, bar))
+   * r.pub(trigger$, 2)
+   * ```
+   */
   subMultiple<T1>(nodes: [NodeRef<T1>], subscription: Subscription<[T1]>): UnsubscribeHandle
   subMultiple<T1, T2>(nodes: [NodeRef<T1>, NodeRef<T2>], subscription: Subscription<[T1, T2]>): UnsubscribeHandle
   subMultiple<T1, T2, T3>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>], subscription: Subscription<[T1, T2, T3]>): UnsubscribeHandle
@@ -156,65 +232,19 @@ export class Realm {
     return this.sub(sink, subscription)
   }
 
-  private calculateExecutionMap(ids: symbol[]) {
-    const participatingNodes: symbol[] = []
-    const visitedNodes = new Set()
-    const pendingPulls = new SetMap<symbol>()
-    const refCount = new RefCount()
-    const projections = new SetMap<RealmProjection>()
-
-    const visit = (id: symbol, insertIndex = 0) => {
-      refCount.increment(id)
-
-      if (visitedNodes.has(id)) {
-        return
-      }
-
-      pendingPulls.use(id, (pulls) => {
-        insertIndex = Math.max(...Array.from(pulls).map((key) => participatingNodes.indexOf(key))) + 1
-      })
-
-      this.graph.use(id, (sinkProjections) => {
-        for (const projection of sinkProjections) {
-          if (projection.sources.has(id)) {
-            projections.getOrCreate(projection.sink).add(projection)
-            visit(projection.sink, insertIndex)
-          } else {
-            pendingPulls.getOrCreate(projection.sink).add(id)
-          }
-        }
-      })
-
-      visitedNodes.add(id)
-      participatingNodes.splice(insertIndex, 0, id)
-    }
-
-    ids.forEach(visit)
-
-    return { participatingNodes, pendingPulls, projections, refCount }
-  }
-
-  private getExecutionMap(ids: symbol[]) {
-    let key: symbol | symbol[] = ids
-    if (ids.length === 1) {
-      key = ids[0]
-      const existingMap = this.executionMaps.get(key)
-      if (existingMap !== undefined) {
-        return existingMap
-      }
-    } else {
-      for (const [key, existingMap] of this.executionMaps.entries()) {
-        if (key instanceof Array && key.length === ids.length && key.every((id) => ids.includes(id))) {
-          return existingMap
-        }
-      }
-    }
-
-    const map = this.calculateExecutionMap(ids)
-    this.executionMaps.set(key, map)
-    return map
-  }
-
+  /**
+   * Publishes into multiple nodes simultaneously, triggering a single re-computation cycle.
+   * @param values - a record of node references and their values.
+   *
+   * @example
+   * ```ts
+   * const foo$ = Cell('foo')
+   * const bar$ = Cell('bar')
+   *
+   * const r = new Realm()
+   * r.pubIn({[foo$]: 'foo1', [bar$]: 'bar1'})
+   * ```
+   */
   pubIn(values: Record<symbol, unknown>) {
     const ids = Reflect.ownKeys(values) as symbol[]
     const map = this.getExecutionMap(ids)
@@ -280,7 +310,7 @@ export class Realm {
   }
 
   /**
-   * A low-level utility that connects multiple nodes to a sink node with a map function.
+   * A low-level utility that connects multiple nodes to a sink node with a map function. Used as a foundation for the higher-level operators.
    * The nodes can be active (sources) or passive (pulls).
    */
   connect<T extends unknown[] = unknown[]>({
@@ -321,40 +351,43 @@ export class Realm {
     this.executionMaps.clear()
   }
 
-  pub(node: NodeRef<unknown>): void
-  pub<T1>(...args: [NodeRef<T1>, T1]): void
-  pub<T1, T2>(...args: [NodeRef<T1>, T1, NodeRef<T2>, T2]): void
-  pub<T1, T2, T3>(...args: [NodeRef<T1>, T1, NodeRef<T2>, T2, NodeRef<T3>, T3]): void
-  pub<T1, T2, T3, T4>(...args: [NodeRef<T1>, T1, NodeRef<T2>, T2, NodeRef<T3>, T3, T4]): void
-  pub(...args: unknown[]): void
-  pub(...args: unknown[]) {
-    const map: Record<symbol, unknown> = {}
-    for (let index = 0; index < args.length; index += 2) {
-      const node = args[index] as NodeRef<unknown>
-      this.register(node)
-      map[node] = args[index + 1]
-    }
-    this.pubIn(map)
+  /**
+   * Runs the subscrptions of this node.
+   * @example
+   * ```ts
+   * const foo$ = Action((r) => {
+   *  r.sub(foo$, console.log)
+   * })
+   *
+   * const r = new Realm()
+   * r.pub(foo$)
+   */
+  pub<T>(node: NodeRef<T>): void
+  /**
+   * Publishes the specified value into a node.
+   * @example
+   * ```ts
+   * const foo$ = Cell('foo')
+   * const r = new Realm()
+   * r.pub(foo$, 'bar')
+   */
+  pub<T>(node: NodeRef<T>, value: T): void
+  pub<T>(node: NodeRef<T>, value?: T) {
+    this.register(node)
+    this.pubIn({ [node]: value })
   }
 
-  private combineOperators<T>(...o: []): (s: NodeRef<T>) => NodeRef<T> // prettier-ignore
-  private combineOperators<T, O1>(...o: [O<T, O1>]): (s: NodeRef<T>) => NodeRef<O1> // prettier-ignore
-  private combineOperators<T, O1, O2>(...o: [O<T, O1>, O<O1, O2>]): (s: NodeRef<T>) => NodeRef<O2> // prettier-ignore
-  private combineOperators<T, O1, O2, O3>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): (s: NodeRef<T>) => NodeRef<O3> // prettier-ignore
-  private combineOperators<T, O1, O2, O3, O4>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): (s: NodeRef<T>) => NodeRef<O4> // prettier-ignore
-  private combineOperators<T, O1, O2, O3, O4, O5>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): (s: NodeRef<T>) => NodeRef<O5> // prettier-ignore
-  private combineOperators<T, O1, O2, O3, O4, O5, O6>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): (s: NodeRef<T>) => NodeRef<O6> // prettier-ignore
-  private combineOperators<T, O1, O2, O3, O4, O5, O6, O7>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): (s: NodeRef<T>) => NodeRef<O7> // prettier-ignore
-  private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown>
-  private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown> {
-    return (source: NodeRef<unknown>) => {
-      for (const op of o) {
-        source = op(source, this)
-      }
-      return source
-    }
-  }
-
+  /**
+   * Creates a new node that emits the values of the source node transformed through the specified operators.
+   * @example
+   * ```ts
+   * const signal$ = Signal<number>(true, (r) => {
+   *   const signalPlusOne$ = r.pipe(signal$, map(i => i + 1))
+   *   r.sub(signalPlusOne$, console.log)
+   * })
+   * const r = new Realm()
+   * r.pub(signal$, 1)
+   */
   pipe<T> (s: NodeRef<T>): NodeRef<T> // prettier-ignore
   pipe<T, O1> (s: NodeRef<T>, o1: O<T, O1>): NodeRef<O1> // prettier-ignore
   pipe<T, O1, O2> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>]): NodeRef<O2> // prettier-ignore
@@ -363,11 +396,32 @@ export class Realm {
   pipe<T, O1, O2, O3, O4, O5> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): NodeRef<O5> // prettier-ignore
   pipe<T, O1, O2, O3, O4, O5, O6> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): NodeRef<O6> // prettier-ignore
   pipe<T, O1, O2, O3, O4, O5, O6, O7> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): NodeRef<O7> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5, O6, O7, O8> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>, O<O7, O8>]): NodeRef<O8> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5, O6, O7, O8, O9> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>, O<O7, O8>, O<O8, O9>]): NodeRef<O9> // prettier-ignore
   pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): NodeRef<unknown>
   pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): NodeRef<unknown> {
     return this.combineOperators(...operators)(source)
   }
 
+  /**
+   * Works as a reverse pipe.
+   * Constructs a function, that, when passed a certain node (sink), will create a node that will work as a publisher through the specified pipes into the sink.
+   * @example
+   * ```ts
+   * const foo$ = Cell('foo')
+   * const bar$ = Cell('bar')
+   * const entry$ = Signal<number>(true, (r) => {
+   *  const transform = r.transformer(map(x: number => `num${x}`))
+   *  const transformFoo$ = transform(foo$)
+   *  const transformBar$ = transform(bar$)
+   *  r.link(entry$, transformFoo$)
+   *  r.link(entry$, transformBar$)
+   * })
+   *
+   * const r = new Realm()
+   * r.pub(entry$, 1) // Both foo$ and bar$ now contain `num1`
+   * ```
+   */
   transformer<In>(...o: []): (s: NodeRef<In>) => NodeRef<In> // prettier-ignore
   transformer<In, Out>(...o: [O<In, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
   transformer<In, Out, O1>(...o: [O<In, O1>, O<O1, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
@@ -386,7 +440,7 @@ export class Realm {
   }
 
   /**
-   * Links the output of a node to another node.
+   * Links the output of a node to the input of another node.
    */
   link<T>(source: NodeRef<T>, sink: NodeRef<T>) {
     this.connect({
@@ -399,10 +453,9 @@ export class Realm {
   }
 
   /**
-   * Combines the values from multiple nodes into a single node
-   * that emits an array of the latest values the nodes.
-   * When one of the source nodes emits a value, the combined node
-   * emits an array of the latest values from each node.
+   * Combines the values from multiple nodes into a single node that emits an array of the latest values of the nodes.
+   *
+   * When one of the source nodes emits a value, the combined node emits an array of the latest values from each node.
    */
   combine<T1> (...nodes: [NodeRef<T1>]): NodeRef<T1> // prettier-ignore
   combine<T1, T2> (...nodes: [NodeRef<T1>, NodeRef<T2>]): NodeRef<[T1, T2]> // prettier-ignore
@@ -435,13 +488,28 @@ export class Realm {
 
   /**
    * Gets the current value of a node. The node must be stateful.
+   * @remark if possible, use {@link withLatestFrom} or {@link combine}, as getValue will not create a dependency to the passed node,
+   * which means that if you call it within a computational cycle, you may not get the correct value.
    * @param node - the node instance.
+   * @example
+   * ```ts
+   * const foo$ = Cell('foo')
+   *
+   * const r = new Realm()
+   * r.getValue(foo$) // 'foo'
+   * r.pub(foo$, 'bar')
+   * //...
+   * r.getValue(foo$) // 'bar'
+   * ```
    */
   getValue<T>(node: NodeRef<T>): T {
     this.register(node)
     return this.state.get(node) as T
   }
 
+  /**
+   * Gets the current values of the specified nodes. Works just like {@link getValue}, but with an array of node references.
+   */
   getValues<T1>(nodes: [NodeRef<T1>]): [T1] // prettier-ignore
   getValues<T1, T2>(nodes: [NodeRef<T1>, NodeRef<T2>]): [T1, T2] // prettier-ignore
   getValues<T1, T2, T3>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): [T1, T2, T3] // prettier-ignore
@@ -457,32 +525,54 @@ export class Realm {
   getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]; // prettier-ignore
   getValues<T>(nodes: Array<NodeRef<T>>): unknown[]
   getValues(nodes: Array<NodeRef<unknown>>) {
-    return nodes.map((node) => {
-      this.register(node)
-      return this.state.get(node)
-    })
+    return nodes.map((node) => this.getValue(node))
   }
 
+  /**
+   * Explicitly includes the specified cell/signal reference in the realm.
+   * Most of the time you don't need to do that, since any interaction with the node through a realm will register it.
+   * The only exception of that rule should be when the interaction is conditional, and the node definition includes an init function that needs to be eagerly evaluated.
+   */
   register(node: NodeRef<unknown>) {
     const definition = nodeDefs$$.get(node)
-    // anonymous node
+    // local node
     if (definition === undefined) {
       return node
     }
 
     if (!this.definitionRegistry.has(node)) {
       this.definitionRegistry.add(node)
-      definition.init(this)
-      if (definition.type === 'cell') {
-        return this.cellInstance(definition.initial, definition.distinct, node)
-      } else {
-        return this.signalInstance(definition.distinct, node)
-      }
+      return tap(
+        definition.type === 'cell'
+          ? this.cellInstance(definition.initial, definition.distinct, node)
+          : this.signalInstance(definition.distinct, node),
+        (node$) => {
+          definition.init(this, node$)
+        }
+      )
     } else {
       return node
     }
   }
 
+  /**
+   * Convenient for mutation of cells that contian non-primitive values (e.g. arrays, or objects).
+   * Specifies that the cell value should be changed when source emits, with the result of the map callback parameter.
+   * the map parameter gets called with the current value of the cell and the value published through the source.
+   * @typeParam T - the type of the cell value.
+   * @typeParam K - the type of the value published through the source.
+   * @example
+   * ```ts
+   * const items$ = Cell<string[]([])
+   * const addItem$ = Signal<string>(false, (r) => {
+   *   r.changeWith(items$, addItem$, (items, item) => [...items, item])
+   * })
+   * const r = new Realm()
+   * r.pub(addItem$, 'foo')
+   * r.pub(addItem$, 'bar')
+   * r.getValue(items$) // ['foo', 'bar']
+   * ```
+   */
   changeWith<T, K>(cell: NodeRef<T>, source: NodeRef<K>, map: (cellValue: T, signalValue: K) => T) {
     this.connect({
       sources: [source],
@@ -493,9 +583,101 @@ export class Realm {
       },
     })
   }
+
+  private calculateExecutionMap(ids: symbol[]) {
+    const participatingNodes: symbol[] = []
+    const visitedNodes = new Set()
+    const pendingPulls = new SetMap<symbol>()
+    const refCount = new RefCount()
+    const projections = new SetMap<RealmProjection>()
+
+    const visit = (id: symbol, insertIndex = 0) => {
+      refCount.increment(id)
+
+      if (visitedNodes.has(id)) {
+        return
+      }
+
+      pendingPulls.use(id, (pulls) => {
+        insertIndex = Math.max(...Array.from(pulls).map((key) => participatingNodes.indexOf(key))) + 1
+      })
+
+      this.graph.use(id, (sinkProjections) => {
+        for (const projection of sinkProjections) {
+          if (projection.sources.has(id)) {
+            projections.getOrCreate(projection.sink).add(projection)
+            visit(projection.sink, insertIndex)
+          } else {
+            pendingPulls.getOrCreate(projection.sink).add(id)
+          }
+        }
+      })
+
+      visitedNodes.add(id)
+      participatingNodes.splice(insertIndex, 0, id)
+    }
+
+    ids.forEach(visit)
+
+    return { participatingNodes, pendingPulls, projections, refCount }
+  }
+
+  private getExecutionMap(ids: symbol[]) {
+    let key: symbol | symbol[] = ids
+    if (ids.length === 1) {
+      key = ids[0]
+      const existingMap = this.executionMaps.get(key)
+      if (existingMap !== undefined) {
+        return existingMap
+      }
+    } else {
+      for (const [key, existingMap] of this.executionMaps.entries()) {
+        if (key instanceof Array && key.length === ids.length && key.every((id) => ids.includes(id))) {
+          return existingMap
+        }
+      }
+    }
+
+    const map = this.calculateExecutionMap(ids)
+    this.executionMaps.set(key, map)
+    return map
+  }
+
+  private combineOperators<T>(...o: []): (s: NodeRef<T>) => NodeRef<T> // prettier-ignore
+  private combineOperators<T, O1>(...o: [O<T, O1>]): (s: NodeRef<T>) => NodeRef<O1> // prettier-ignore
+  private combineOperators<T, O1, O2>(...o: [O<T, O1>, O<O1, O2>]): (s: NodeRef<T>) => NodeRef<O2> // prettier-ignore
+  private combineOperators<T, O1, O2, O3>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): (s: NodeRef<T>) => NodeRef<O3> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): (s: NodeRef<T>) => NodeRef<O4> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4, O5>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): (s: NodeRef<T>) => NodeRef<O5> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4, O5, O6>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): (s: NodeRef<T>) => NodeRef<O6> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4, O5, O6, O7>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): (s: NodeRef<T>) => NodeRef<O7> // prettier-ignore
+  private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown>
+  private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown> {
+    return (source: NodeRef<unknown>) => {
+      for (const op of o) {
+        source = op(source, this)
+      }
+      return source
+    }
+  }
 }
 
 /**
+ * Defines a new **stateful node** and returns a reference to it.
+ * Once a realm instance publishes or subscribes to the node, an instance of that node it will be registered in the realm.
+ * @param value - the initial value of the node. Stateful nodes always have a value.
+ * @param distinct - if true, the node will only emit values that are different from the previous value. Optionally, a custom distinct function can be provided if the node values are non-primitive.
+ * @param init - an optional function that will be called when the node is registered in a realm. Can be used to create subscriptions and define relationships to other nodes. Any referred nodes will be registered in the realm automatically.
+ * @example
+ * ```ts
+ * const foo$ = Cell('foo', true, (r) => {
+ * r.sub(foo$, console.log)
+ * })
+ * const r = new Realm()
+ * r.pub(foo$, 'bar') // the subscription will log 'bar'
+ * ```
+ * @remarks Unlike the RxJS `BehaviorSubject`, a stateful node does not immediately invoke its subscriptions when subscribed to. It only emits values when you publish something in it, either directly or through its relationships.
+ * If you need to get the current value of a stateful node, use {@link Realm.getValue}.
  * @category Nodes
  */
 export function Cell<T>(value: T, distinct: Distinct<T> = false, init: (r: Realm) => void = noop): NodeRef<T> {
@@ -505,18 +687,42 @@ export function Cell<T>(value: T, distinct: Distinct<T> = false, init: (r: Realm
 }
 
 /**
+ * Defines a new **stateless node** and returns a reference to it.
+ * Once a realm instance publishes or subscribes to the node, an instance of that node it will be registered in the realm.
+ * @param distinct - if true, the node will only emit values that are different from the previous value. Optionally, a custom distinct function can be provided if the node values are non-primitive.
+ * @param init - an optional function that will be called when the node is registered in a realm. Can be used to create subscriptions and define relationships to other nodes. Any referred nodes will be registered in the realm automatically.
+ * @example
+ * ```ts
+ * const foo$ = Signal<string>(true, (r) => {
+ *   r.sub(foo$, console.log)
+ * })
+ * const r = new Realm()
+ * r.pub(foo$, 'bar') // the subscription will log 'bar'
+ * ```
  * @category Nodes
  */
-export function Signal<T>(distinct: Distinct<T> = false, init: (r: Realm) => void = noop): NodeRef<T> {
+export function Signal<T>(distinct: Distinct<T> = false, init: NodeInit<T> = noop): NodeRef<T> {
   return tap(Symbol(), (id) => {
     nodeDefs$$.set(id, { type: 'signal', distinct, init })
   }) as NodeRef<T>
 }
 
 /**
+ * Defines a new **stateless, valueless node** and returns a reference to it.
+ * Once a realm instance publishes or subscribes to the node, an instance of that node it will be registered in the realm.
+ * @param init - an optional function that will be called when the node is registered in a realm. Can be used to create subscriptions and define relationships to other nodes. Any referred nodes will be registered in the realm automatically.
+ * @example
+ * ```ts
+ * const foo$ = Action((r) => {
+ *   r.sub(foo$, () => console.log('foo action'))
+ * })
+ * const r = new Realm()
+ * r.pub(foo$)
+ * ```
  * @category Nodes
+ * @remark An action is just a signal with `void` value. It can be used to trigger side effects.
  */
-export function Action(init: (r: Realm) => void = noop): NodeRef<void> {
+export function Action(init: NodeInit<void> = noop): NodeRef<void> {
   return tap(Symbol(), (id) => {
     nodeDefs$$.set(id, { type: 'signal', distinct: false, init })
   }) as NodeRef<void>
