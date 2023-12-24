@@ -1,25 +1,14 @@
 import { RefCount } from './RefCount'
 import { SetMap } from './SetMap'
-import { type Comparator, type CellDefinition, type SignalDefinition, type Distinct } from './nodes'
 import { type O } from './operators'
-import { tap } from './utils'
+import { tap, noop } from './utils'
 
 /**
- * Represents a typed reference to a node in the Realm.
- * @typeParam _T - The type of values that the node emits.
- * @category Nodes
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export interface RealmNode<_T = unknown> {
-  id: symbol
-}
-
-/**
- * A reference to either a cell, signal, or a runtime constructed node.
+ * Represents a typed reference to a node.
  * @typeParam T - The type of values that the node emits.
  * @category Nodes
  */
-export type NodeRef<T> = RealmNode<T> | CellDefinition<T> | SignalDefinition<T>
+export type NodeRef<T = unknown> = symbol & { valType: T }
 
 /**
  * A function that is called when a node emits a value.
@@ -58,6 +47,39 @@ interface ExecutionMap {
 }
 
 /**
+ * A function which determines if two values are equal.
+ * Implement custom comparators for distinct nodes that contain non-primitive values.
+ * @param previous - The value that previously passed through the node. can be undefined if the node has not emitted a value yet.
+ * @param current - The value currently passing.
+ * @typeParam T - The type of values that the comparator compares.
+ * @returns true if values should be considered equal.
+ * @category Nodes
+ */
+export type Comparator<T> = (previous: T | undefined, current: T) => boolean
+
+/**
+ * A type for the distinct parameter to the {@link Cell} and {@link Signal} constructors.
+ * @typeParam T - The type of values that the node emits.
+ * @category Nodes
+ */
+export type Distinct<T> = boolean | Comparator<T>
+
+interface CellDefinition<T> {
+  type: 'cell'
+  distinct: Distinct<T>
+  initial: T
+  init: (realm: Realm) => void
+}
+
+interface SignalDefinition<T> {
+  type: 'signal'
+  distinct: Distinct<T>
+  init: (realm: Realm) => void
+}
+
+const nodeDefs$$ = new Map<symbol, CellDefinition<any> | SignalDefinition<any>>()
+
+/**
  * A realm is a directed acyclic graph of nodes.
  * The realm is responsible for initializing cells and signals based on their definitions.
  * The actual node state is stored in the realm.
@@ -77,40 +99,39 @@ export class Realm {
     }
   }
 
-  private cellInstance<T>(value: T, distinct: Distinct<T> = false, id = Symbol()): RealmNode<T> {
-    if (!this.state.has(id)) {
-      this.state.set(id, value)
+  private cellInstance<T>(value: T, distinct: Distinct<T> = false, node = Symbol()): NodeRef<T> {
+    if (!this.state.has(node)) {
+      this.state.set(node, value)
     }
 
     if (distinct !== false) {
-      this.distinctNodes.set(id, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
+      this.distinctNodes.set(node, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
     }
-    return { id }
+    return node as NodeRef<T>
   }
 
-  signalInstance<T>(distinct: Distinct<T> = false, id = Symbol()): RealmNode<T> {
+  signalInstance<T>(distinct: Distinct<T> = false, node = Symbol()): NodeRef<T> {
     if (distinct !== false) {
-      this.distinctNodes.set(id, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
+      this.distinctNodes.set(node, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
     }
-    return { id }
+    return node as NodeRef<T>
   }
 
   sub<T>(node: NodeRef<T>, subscription: Subscription<T>): UnsubscribeHandle {
     this.register(node)
-    const nodeSubscriptions = this.subscriptions.getOrCreate(node.id)
+    const nodeSubscriptions = this.subscriptions.getOrCreate(node)
     nodeSubscriptions.add(subscription as Subscription<unknown>)
     return () => nodeSubscriptions.delete(subscription as Subscription<unknown>)
   }
 
-  singletonSub<T>(node: RealmNode<T>, subscription: Subscription<T> | undefined): UnsubscribeHandle {
+  singletonSub<T>(node: NodeRef<T>, subscription: Subscription<T> | undefined): UnsubscribeHandle {
     this.register(node)
-    const id = node.id
     if (subscription === undefined) {
-      this.singletonSubscriptions.delete(id)
+      this.singletonSubscriptions.delete(node)
     } else {
-      this.singletonSubscriptions.set(id, subscription as Subscription<unknown>)
+      this.singletonSubscriptions.set(node, subscription as Subscription<unknown>)
     }
-    return () => this.singletonSubscriptions.delete(id)
+    return () => this.singletonSubscriptions.delete(node)
   }
 
   resetSingletonSubs = () => {
@@ -258,10 +279,6 @@ export class Realm {
     }
   }
 
-  private nodesToKeySet(nodes: RealmNode[]) {
-    return new Set(nodes.map((s) => s.id))
-  }
-
   /**
    * A low-level utility that connects multiple nodes to a sink node with a map function.
    * The nodes can be active (sources) or passive (pulls).
@@ -291,14 +308,14 @@ export class Realm {
   }) {
     const dependency: RealmProjection<T> = {
       map,
-      pulls: this.nodesToKeySet(pulls),
-      sink: this.register(sink).id,
-      sources: this.nodesToKeySet(sources),
+      pulls: new Set(pulls),
+      sink: this.register(sink),
+      sources: new Set(sources),
     }
 
     for (const node of [...sources, ...pulls]) {
       this.register(node)
-      this.graph.getOrCreate(node.id).add(dependency as RealmProjection<unknown[]>)
+      this.graph.getOrCreate(node).add(dependency as RealmProjection<unknown[]>)
     }
 
     this.executionMaps.clear()
@@ -315,7 +332,7 @@ export class Realm {
     for (let index = 0; index < args.length; index += 2) {
       const node = args[index] as NodeRef<unknown>
       this.register(node)
-      map[node.id] = args[index + 1]
+      map[node] = args[index + 1]
     }
     this.pubIn(map)
   }
@@ -330,7 +347,7 @@ export class Realm {
   private combineOperators<T, O1, O2, O3, O4, O5, O6, O7>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): (s: NodeRef<T>) => NodeRef<O7> // prettier-ignore
   private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown>
   private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown> {
-    return (source: NodeRef<T>) => {
+    return (source: NodeRef<unknown>) => {
       for (const op of o) {
         source = op(source, this)
       }
@@ -346,8 +363,8 @@ export class Realm {
   pipe<T, O1, O2, O3, O4, O5> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): NodeRef<O5> // prettier-ignore
   pipe<T, O1, O2, O3, O4, O5, O6> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): NodeRef<O6> // prettier-ignore
   pipe<T, O1, O2, O3, O4, O5, O6, O7> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): NodeRef<O7> // prettier-ignore
-  pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): RealmNode<unknown>
-  pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): RealmNode<unknown> {
+  pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): NodeRef<unknown>
+  pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): NodeRef<unknown> {
     return this.combineOperators(...operators)(source)
   }
 
@@ -360,7 +377,7 @@ export class Realm {
   transformer<In, Out, O1, O2, O3, O4, O5>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
   transformer<In, Out>(...operators: Array<O<unknown, unknown>>): (s: NodeRef<Out>) => NodeRef<In>
   transformer<In, Out>(...operators: Array<O<unknown, unknown>>): (s: NodeRef<Out>) => NodeRef<In> {
-    return (sink: NodeRef<In>) => {
+    return (sink: NodeRef<Out>) => {
       return tap(this.signalInstance<In>(), (source) => {
         this.link(this.pipe(source, ...operators), sink)
         return source
@@ -422,7 +439,7 @@ export class Realm {
    */
   getValue<T>(node: NodeRef<T>): T {
     this.register(node)
-    return this.state.get(node.id) as T
+    return this.state.get(node) as T
   }
 
   getValues<T1>(nodes: [NodeRef<T1>]): [T1] // prettier-ignore
@@ -442,39 +459,31 @@ export class Realm {
   getValues(nodes: Array<NodeRef<unknown>>) {
     return nodes.map((node) => {
       this.register(node)
-      return this.state.get(node.id)
+      return this.state.get(node)
     })
   }
 
-  private registerCell<T>({ id, initial, distinct, init }: CellDefinition<T>): RealmNode<T> {
-    if (!this.definitionRegistry.has(id)) {
-      this.definitionRegistry.add(id)
-      init(this)
-      return this.cellInstance(initial, distinct, id)
-    }
-    return { id }
-  }
-
-  private registerSignal<T>({ id, distinct, init }: SignalDefinition<T>): RealmNode<T> {
-    if (!this.definitionRegistry.has(id)) {
-      this.definitionRegistry.add(id)
-      init(this)
-      return this.signalInstance(distinct, id)
-    }
-    return { id }
-  }
-
   register(node: NodeRef<unknown>) {
-    if ('cellDefinition' in node) {
-      return this.registerCell(node)
-    } else if ('signalDefinition' in node) {
-      return this.registerSignal(node)
+    const definition = nodeDefs$$.get(node)
+    // anonymous node
+    if (definition === undefined) {
+      return node
     }
 
-    return node
+    if (!this.definitionRegistry.has(node)) {
+      this.definitionRegistry.add(node)
+      definition.init(this)
+      if (definition.type === 'cell') {
+        return this.cellInstance(definition.initial, definition.distinct, node)
+      } else {
+        return this.signalInstance(definition.distinct, node)
+      }
+    } else {
+      return node
+    }
   }
 
-  changeWith<T, K>(cell: CellDefinition<T>, source: NodeRef<K>, map: (cellValue: T, signalValue: K) => T) {
+  changeWith<T, K>(cell: NodeRef<T>, source: NodeRef<K>, map: (cellValue: T, signalValue: K) => T) {
     this.connect({
       sources: [source],
       pulls: [cell],
@@ -484,4 +493,31 @@ export class Realm {
       },
     })
   }
+}
+
+/**
+ * @category Nodes
+ */
+export function Cell<T>(value: T, distinct: Distinct<T> = false, init: (r: Realm) => void = noop): NodeRef<T> {
+  return tap(Symbol(), (id) => {
+    nodeDefs$$.set(id, { type: 'cell', distinct, initial: value, init })
+  }) as NodeRef<T>
+}
+
+/**
+ * @category Nodes
+ */
+export function Signal<T>(distinct: Distinct<T> = false, init: (r: Realm) => void = noop): NodeRef<T> {
+  return tap(Symbol(), (id) => {
+    nodeDefs$$.set(id, { type: 'signal', distinct, init })
+  }) as NodeRef<T>
+}
+
+/**
+ * @category Nodes
+ */
+export function Action(init: (r: Realm) => void = noop): NodeRef<void> {
+  return tap(Symbol(), (id) => {
+    nodeDefs$$.set(id, { type: 'signal', distinct: false, init })
+  }) as NodeRef<void>
 }

@@ -1,4 +1,4 @@
-import { type Realm, type NodeRef, type RealmNode } from './realm'
+import { type Realm, type NodeRef } from './realm'
 
 /**
  * An operator that transforms a node into another node, used in the {@link Realm.pipe} method.
@@ -6,7 +6,7 @@ import { type Realm, type NodeRef, type RealmNode } from './realm'
  * @typeParam Out - The type of values that the resulting node will emit.
  * @category Operators
  */
-export type Operator<In, Out> = (source: NodeRef<In>, realm: Realm) => RealmNode<Out>
+export type Operator<In, Out> = (source: NodeRef<In>, realm: Realm) => NodeRef<Out>
 
 /**
  * Shorter alias for {@link Operator}, to avoid extra long type signatures.

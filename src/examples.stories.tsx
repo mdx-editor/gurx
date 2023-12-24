@@ -5,8 +5,8 @@ const bar = Cell('bar', true)
 const q = Action((r) => {
   r.sub(q, () => {
     r.pubIn({
-      [foo.id]: 'baz',
-      [bar.id]: 'bam',
+      [foo]: 'baz',
+      [bar]: 'bam',
     })
   })
 })

@@ -188,7 +188,7 @@ describe('pipe', () => {
 
     const spy = vi.fn()
     r.sub(c, spy)
-    r.pubIn({ [a.id]: 3, [b.id]: 4 })
+    r.pubIn({ [a]: 3, [b]: 4 })
     expect(spy).toHaveBeenCalledWith([3, 4, 6])
     expect(spy).toHaveBeenCalledTimes(1)
     r.pub(d, 7)

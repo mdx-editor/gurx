@@ -36,7 +36,7 @@ describe('gurx cells/signals', () => {
 
   it('accepts initial cell values', () => {
     const cell = Cell('foo')
-    r = new Realm({ [cell.id]: 'bar' })
+    r = new Realm({ [cell]: 'bar' })
     expect(r.getValue(cell)).toEqual('bar')
   })
 
@@ -207,8 +207,8 @@ describe('realm features', () => {
     r.sub(d, spy2)
 
     r.pubIn({
-      [a.id]: 2,
-      [b.id]: 3,
+      [a]: 2,
+      [b]: 3,
     })
     expect(spy).toHaveBeenCalledWith(2)
     expect(spy).toHaveBeenCalledTimes(1)
@@ -216,8 +216,8 @@ describe('realm features', () => {
     expect(spy2).toHaveBeenCalledTimes(1)
 
     r.pubIn({
-      [a.id]: 3,
-      [b.id]: 4,
+      [a]: 3,
+      [b]: 4,
     })
     expect(spy).toHaveBeenCalledWith(4)
     expect(spy).toHaveBeenCalledTimes(2)
@@ -384,7 +384,7 @@ describe('realm features', () => {
 
     const spy = vi.fn()
     r.sub(c, spy)
-    r.pubIn({ [a.id]: 2, [b.id]: 3 })
+    r.pubIn({ [a]: 2, [b]: 3 })
 
     expect(spy).toHaveBeenCalledWith(5)
     expect(spy).toHaveBeenCalledTimes(1)
@@ -457,8 +457,8 @@ describe('realm features', () => {
     r.subMultiple([a, b], spy)
 
     r.pubIn({
-      [a.id]: 'qux',
-      [b.id]: 'mu',
+      [a]: 'qux',
+      [b]: 'mu',
     })
 
     expect(spy).toHaveBeenCalledWith(['qux', 'mu'])

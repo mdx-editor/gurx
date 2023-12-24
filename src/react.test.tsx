@@ -56,7 +56,7 @@ describe('gurx realm react', () => {
       const { result } = renderHook(useCell, {
         initialProps: cell,
         wrapper: ({ children }) => {
-          return <RealmProvider initWith={{ [cell.id]: 'world' }}>{children}</RealmProvider>
+          return <RealmProvider initWith={{ [cell]: 'world' }}>{children}</RealmProvider>
         },
       })
       expect(result.current[0]).toEqual('world')
@@ -67,7 +67,7 @@ describe('gurx realm react', () => {
         return <div data-testid="cell-value">{value}</div>
       }
       const { rerender } = render(
-        <RealmProvider initWith={{ [cell.id]: '1' }}>
+        <RealmProvider initWith={{ [cell]: '1' }}>
           <Child />
         </RealmProvider>
       )
@@ -75,7 +75,7 @@ describe('gurx realm react', () => {
       expect(screen.getByTestId('cell-value').textContent).toEqual('1')
 
       rerender(
-        <RealmProvider updateWith={{ [cell.id]: '2' }}>
+        <RealmProvider updateWith={{ [cell]: '2' }}>
           <Child />
         </RealmProvider>
       )

@@ -6,5 +6,4 @@
 export * from './realm'
 export * from './hooks'
 export * from './operators'
-export * from './nodes'
 export { RealmProvider } from './react'
