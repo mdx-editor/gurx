@@ -1,10 +1,36 @@
 # Push-based state management 
 
-Works with React, can be used as standalone library, useful when you test your state management logic.
+Welcome to the README of Gurx, an extensible typescript-native reactive state management library for complex web applications and components. 
 
-Gurx lets you specify your application state management logic as stateful nodes (cells), stateless nodes (signals), and dependencies and transformations between the values that flow through them. In the react world, a provider and a set of hooks allow you to access the values and to push new values in the given cells / signals.
+## Motivation
 
-Under the hood, the cells and signals are arranged in a graph (a Realm) based on the dependencies and transformations you specify. When a cell or signal changes, the graph is traversed to find all the cells and signals that depend on the changed value. The new values are then pushed through the graph, and the components that depend on them are re-rendered.
+- **Push-based** - Gurx implements a push-based state model, meaning that the values flow through the graph as they change, and the components are re-rendered when the values they depend on change. This is in contrast to pull-based libraries like Jotai or Redux, where the values are pulled from the store when the components are rendered. 
+
+- **Open** - the node definition based approach lets you extend the logic of the state management by connecting more nodes and interactions to the existing ones. This lets you partition your state management logic into smaller, more manageable pieces and even build a plugin system on top of it. 
+
+- **Optimized** - any Gurx node can be marked as distinct, meaning that it will push through its subscribers only when a new value arrives. This allows you to avoid expensive computations and re-renders. 
+
+- **Multi publish/subscribe** - you can subscribe to multiple nodes at once, and you can publish to multiple nodes at once. A multi-push will execute a single traversal of the node graph, and will re-render the components only once, given that they are subscribed through a single point. 
+
+- **Type-safe** - the library gives you the right types within the node operators and the React hooks.
+
+- **Testable** - you can easily initiate a realm and interact with your nodes outside of React. This makes it easy to unit-test your state management logic. 
+
+- **React friendly** - Gurx has a Realm provider component and set of hooks that allow you to access the values and to publish new values in the given nodes. Under the hood, the hooks use `useSyncExternalStore`.
+
+## Conceptual Overview
+
+The library is based on the concept node **definitions**, which are instantiated into **nodes** within a graph-based structure called a **Realm**. The nodes are connected to each other through **dependencies** and **transformations** that describe how the values that flow through the nodes map and transform. 
+
+### Cells, Signals, and Actions
+
+Gurx has three types of node definitions: **cells**, **signals**, and **actions**. The cells are stateful, which means that the values that flow through them are stored in the realm between computations. The signals are stateless - you can publish a value through a signal that will trigger the specified computations and you can subscribe to signal updates, but you can't query the current value of a signal. Finally, the actions are value-less signals - they are meant to trigger some recalculation without a parameter. 
+
+### The Realm
+
+The cells, signals, and actions are just blueprints **and** references to nodes within a realm that will be created. The actual instantiation and interaction (publishing, subscribing, etc) with them happens through a Realm instance. A realm is initially empty; it creates their node instances when you subscribe or publish to them through it. If a cell/signal refers to other nodes in its initialization function, the realm will automatically recursively include those nodes as well. 
+
+Each cell/signal has a single instance in a realm. If you subscribe to a cell/signal multiple times, the realm will return the same instance. In practices, you don't have to care about the distinction between an instance and a definition - under the hood, they both use symbol as a reference.
 
 ## Hello world
 
