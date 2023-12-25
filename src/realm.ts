@@ -111,10 +111,10 @@ export class Realm {
    * Creates or resolves an existing cell instance in the realm. Useful as a joint point when building your own operators.
    * @returns a reference to the cell.
    * @param value - the initial value of the cell
-   * @param distinct - false by default. Pass true to mark the cell as a distinct one, or a custom comparator in case of a non-primitive value.
+   * @param distinct - true by default. Pass false to mark the signal as a non-distinct one, meaning that publishing the same value multiple times will re-trigger a recomputation cycle.
    * @param node - optional, a reference to a cell. If the cell has not been touched in the realm before, the realm will instantiate a reference to it. If it's registered already, the function will return the reference.
    */
-  cellInstance<T>(value: T, distinct: Distinct<T> = false, node = Symbol()): NodeRef<T> {
+  cellInstance<T>(value: T, distinct: Distinct<T> = true, node = Symbol()): NodeRef<T> {
     if (!this.state.has(node)) {
       this.state.set(node, value)
       if (distinct !== false) {
@@ -128,10 +128,10 @@ export class Realm {
   /**
    * Creates or resolves an existing signal instance in the realm. Useful as a joint point when building your own operators.
    * @returns a reference to the signal.
-   * @param distinct - false by default. Pass true to mark the signal as a distinct one, or a custom comparator in case of a non-primitive value.
+   * @param distinct - true by default. Pass false to mark the signal as a non-distinct one, meaning that publishing the same value multiple times will re-trigger a recomputation cycle.
    * @param node - optional, a reference to a signal. If the signal has not been touched in the realm before, the realm will instantiate a reference to it. If it's registered already, the function will return the reference.
    */
-  signalInstance<T>(distinct: Distinct<T> = false, node = Symbol()): NodeRef<T> {
+  signalInstance<T>(distinct: Distinct<T> = true, node = Symbol()): NodeRef<T> {
     if (distinct !== false) {
       this.distinctNodes.set(node, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
     }
@@ -671,8 +671,8 @@ export class Realm {
  * Defines a new **stateful node** and returns a reference to it.
  * Once a realm instance publishes or subscribes to the node, an instance of that node it will be registered in the realm.
  * @param value - the initial value of the node. Stateful nodes always have a value.
- * @param distinct - if true, the node will only emit values that are different from the previous value. Optionally, a custom distinct function can be provided if the node values are non-primitive.
  * @param init - an optional function that will be called when the node is registered in a realm. Can be used to create subscriptions and define relationships to other nodes. Any referred nodes will be registered in the realm automatically.
+ * @param distinct - if true, the node will only emit values that are different from the previous value. Optionally, a custom distinct function can be provided if the node values are non-primitive.
  * @example
  * ```ts
  * const foo$ = Cell('foo', true, (r) => {
@@ -685,7 +685,7 @@ export class Realm {
  * If you need to get the current value of a stateful node, use {@link Realm.getValue}.
  * @category Nodes
  */
-export function Cell<T>(value: T, distinct: Distinct<T> = false, init: (r: Realm) => void = noop): NodeRef<T> {
+export function Cell<T>(value: T, init: (r: Realm) => void = noop, distinct: Distinct<T> = true): NodeRef<T> {
   return tap(Symbol(), (id) => {
     nodeDefs$$.set(id, { type: 'cell', distinct, initial: value, init })
   }) as NodeRef<T>
@@ -694,8 +694,8 @@ export function Cell<T>(value: T, distinct: Distinct<T> = false, init: (r: Realm
 /**
  * Defines a new **stateless node** and returns a reference to it.
  * Once a realm instance publishes or subscribes to the node, an instance of that node it will be registered in the realm.
- * @param distinct - if true, the node will only emit values that are different from the previous value. Optionally, a custom distinct function can be provided if the node values are non-primitive.
  * @param init - an optional function that will be called when the node is registered in a realm. Can be used to create subscriptions and define relationships to other nodes. Any referred nodes will be registered in the realm automatically.
+ * @param distinct - true by default. The node emits values that are different from the previous value. Optionally, a custom distinct function can be provided if the node values are non-primitive.
  * @example
  * ```ts
  * const foo$ = Signal<string>(true, (r) => {
@@ -706,7 +706,7 @@ export function Cell<T>(value: T, distinct: Distinct<T> = false, init: (r: Realm
  * ```
  * @category Nodes
  */
-export function Signal<T>(distinct: Distinct<T> = false, init: NodeInit<T> = noop): NodeRef<T> {
+export function Signal<T>(init: NodeInit<T> = noop, distinct: Distinct<T> = false): NodeRef<T> {
   return tap(Symbol(), (id) => {
     nodeDefs$$.set(id, { type: 'signal', distinct, init })
   }) as NodeRef<T>

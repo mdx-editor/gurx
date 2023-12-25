@@ -8,7 +8,7 @@ Welcome to the README of Gurx, an extensible typescript-native reactive state ma
 
 - **Open** - the node definition based approach lets you extend the logic of the state management by connecting more nodes and interactions to the existing ones. This lets you partition your state management logic into smaller, more manageable pieces and even build a plugin system on top of it. 
 
-- **Optimized** - any Gurx node can be marked as distinct, meaning that it will push through its subscribers only when a new value arrives. This allows you to avoid expensive computations and re-renders. 
+- **Optimized** - any Gurx node are marked as distinct by default, meaning that it will push through its subscribers only when a value different than the previous one is published. This allows you to avoid expensive computations and re-renders. 
 
 - **Multi publish/subscribe** - you can subscribe to multiple nodes at once, and you can publish to multiple nodes at once. A multi-push will execute a single traversal of the node graph, and will re-render the components only once, given that they are subscribed through a single point. 
 
@@ -48,20 +48,18 @@ Note: You can name the node references with a dollar sign suffix, to indicate th
 const myCell$ = Cell(
   // initial value
   0,
-  // distinct flag
-  true,
   // the r is the realm instance that starts the cell
   (r) => {
     r.sub(myCell$, (value) => {
       console.log('myCell$ changed to', value)
     })
   }
+  // distinct flag, true by default
+  true
 )
 
 // Since signals have no initial value, you need to specify the type of data that will flow through them
 const mySignal$ = Signal<number>(
-  // distinct flag
-  true,
   // the r is the realm instance that starts the cell
   (r) => {
     r.sub(mySignal$, (value) => {
@@ -69,7 +67,9 @@ const mySignal$ = Signal<number>(
     })
     // publishing a value through a signal will publish it into $myCell as well
     r.link(mySignal$, myCell$)
-  }
+  },
+  // distinct flag
+  true
 )
 ```
 

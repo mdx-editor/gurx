@@ -1,10 +1,10 @@
 import { map, Signal, Cell, RealmProvider, useCellValue, usePublisher } from '.'
 
 // Create a cell with an initial value
-const cell$ = Cell('foo', true)
+const cell$ = Cell('foo')
 
 // A signal, that will update the cell when its value changes
-const signal$ = Signal<number>(true, (r) => {
+const signal$ = Signal<number>((r) => {
   r.link(
     r.pipe(
       signal$,

@@ -42,7 +42,7 @@ describe('gurx cells/signals', () => {
 
   it('supports init function for cells', () => {
     const a = Cell(2)
-    const b = Cell(2, true, (r) => {
+    const b = Cell(2, (r) => {
       r.link(b, a)
     })
     r.pub(b, 3)
@@ -51,7 +51,7 @@ describe('gurx cells/signals', () => {
 
   it('supports init function for signals', () => {
     const a = Cell(2)
-    const b = Signal(true, (r) => {
+    const b = Signal((r) => {
       r.link(b, a)
     })
     r.pub(b, 3)
@@ -92,9 +92,9 @@ describe('realm features', () => {
   })
 
   it('supports undefined initial value', () => {
-    const n = Cell<string | undefined>(undefined, true)
-    const q = Cell(1, true)
-    const tc = Cell<number>(0, true)
+    const n = Cell<string | undefined>(undefined)
+    const q = Cell(1)
+    const tc = Cell<number>(0)
     r.link(
       r.pipe(
         r.combine(n, q),
@@ -411,7 +411,7 @@ describe('realm features', () => {
   })
 
   it('does not recall subscriptions for distinct stateful nodes', () => {
-    const a = Cell('foo', true)
+    const a = Cell('foo')
     const spy = vi.fn()
     r.sub(a, spy)
     r.pub(a, 'foo')
@@ -421,7 +421,7 @@ describe('realm features', () => {
 
   it('does not recall subscriptions for distinct stateful child nodes', () => {
     const a = Cell('bar')
-    const b = Cell('foo', true)
+    const b = Cell('foo')
     const spy = vi.fn()
     r.connect({
       map: (value) => value,
@@ -436,7 +436,11 @@ describe('realm features', () => {
   })
 
   it('supports custom comparator when distinct flag is set', () => {
-    const a = Cell({ id: 'foo' }, (current, next) => (current !== undefined ? current.id === next.id : false))
+    const a = Cell(
+      { id: 'foo' },
+      () => {},
+      (current, next) => (current !== undefined ? current.id === next.id : false)
+    )
     const spy = vi.fn()
     r.sub(a, spy)
     r.pub(a, { id: 'foo' })
@@ -446,7 +450,7 @@ describe('realm features', () => {
 
   it('supports subscribing to multiple nodes', () => {
     const a = Cell('bar')
-    const b = Cell('foo', true)
+    const b = Cell('foo')
     const spy = vi.fn()
     r.connect({
       map: (value) => value,

@@ -1,7 +1,7 @@
 import { Action, Cell, RealmProvider, useCellValue, useCellValues, usePublisher } from '.'
 
-const foo$ = Cell('foo', true)
-const bar$ = Cell('bar', true)
+const foo$ = Cell('foo')
+const bar$ = Cell('bar')
 
 const q$ = Action((r) => {
   r.sub(q$, () => {
