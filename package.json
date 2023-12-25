@@ -1,8 +1,12 @@
 {
   "name": "@mdxeditor/gurx",
-  "private": true,
-  "version": "0.0.0",
+  "private": false,
+  "sideEffects": false,
   "type": "module",
+  "version": "0.0.0-development",
+  "module": "dist/index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "dev": "ladle serve",
     "build": "tsc && vite build",
@@ -11,6 +15,37 @@
     "typecheck": "tsc --noEmit",
     "docs:build": "typedoc --excludePrivate --out docs --name 'Gurx' src/index.ts"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "packageManager": "npm@9.5.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mdx-editor/gurx.git"
+  },
+  "release": {
+    "branches": [
+      "+([0-9])?(.{+([0-9]),x}).x",
+      "master",
+      "next",
+      "next-major",
+      {
+        "name": "beta",
+        "prerelease": true
+      },
+      {
+        "name": "alpha",
+        "prerelease": true
+      }
+    ]
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
@@ -37,6 +72,7 @@
     "eslint-plugin-react-refresh": "^0.4.5",
     "jsdom": "^23.0.1",
     "prettier": "3.1.1",
+    "semantic-release": "^22.0.12",
     "typedoc": "^0.25.4",
     "typescript": "^5.3.3",
     "vite": "^5.0.8",

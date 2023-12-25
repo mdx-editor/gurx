@@ -34,6 +34,10 @@ Each cell/signal has a single instance in a realm. If you subscribe to a cell/si
 
 ## Installation
 
+```sh
+npm install @mdxeditor/gurx
+```
+
 ## Defining Cells and Signals
 
 The first step in building your state management logic is to define the cells and signals that will hold the values and their relationships. Unlike other state management libraries, Gurx doesn't have the concept of a store. Instead, the cells and signals definitions are declared on the module level. A cell is defined by calling the `Cell` function, which accepts an initial value, a distinct flag, and an initialization function that can be used to connect the cell to other nodes using the realm instance which starts it. The `Signal` function is the same, but with the initial value argument. 
