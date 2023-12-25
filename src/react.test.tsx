@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { RealmProvider } from './react'
 import { cleanup, renderHook, render, screen } from '@testing-library/react'
-import { useCell, useCellValue, useCellValues, useSignal } from './hooks'
+import { useCell, useCellValue, useCellValues, usePublisher } from './hooks'
 import { mapTo } from './operators'
 import { Cell, Action } from '.'
 
@@ -31,7 +31,7 @@ describe('gurx realm react', () => {
 
     const { result, rerender } = renderHook(
       () => {
-        const proc = useSignal(action)
+        const proc = usePublisher(action)
         const value = useCellValue(cell)
         return [value, proc] as const
       },

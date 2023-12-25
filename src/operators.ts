@@ -15,7 +15,7 @@ export type Operator<In, Out> = (source: NodeRef<In>, realm: Realm) => NodeRef<O
 export type O<In, Out> = Operator<In, Out>
 
 /**
- * Maps a the value of a node to a new node with a projection function.
+ * Maps a the passed value with a projection function.
  * @category Operators
  */
 export function map<I, O>(mapFunction: (value: I) => O) {
@@ -237,7 +237,6 @@ export function onNext<I, O>(bufNode: NodeRef<O>) {
 
 /**
  * Handles a promise value through the specified callbacks.
- *
  * @category Operators
  */
 export function handlePromise<I, OutSuccess, OnLoad, OutError>(

@@ -5,7 +5,7 @@ import { type NodeRef } from './realm'
 /**
  * Returns a direct reference to the current realm. Use with caution.
  *
- * If possible, design your logic in a reactive manner, and use {@link useCellValue} and {@link useSignal} to access the output of the realm.
+ * If possible, design your logic in a reactive manner, and use {@link useCellValue} and {@link usePublisher} to access the output of the realm.
  * @category Hooks
  */
 export function useRealm() {
@@ -111,13 +111,13 @@ export function useCellValues(...cells: Array<NodeRef<unknown>>): unknown[] {
  * })
  * //...
  * function MyComponent() {
- *  const publishIntoSignal = useSignal(signal$);
- *  return <button onClick={() => publishIntoSignal(2)}>Push a value into the signal</button>
+ *  const pub = usePublisher(signal$);
+ *  return <button onClick={() => pub(2)}>Push a value into the signal</button>
  * }
  * ```
  * @category Hooks
  */
-export function useSignal<T>(node: NodeRef<T>) {
+export function usePublisher<T>(node: NodeRef<T>) {
   const realm = useRealm()
   realm.register(node)
   return React.useCallback(
@@ -132,12 +132,12 @@ export function useSignal<T>(node: NodeRef<T>) {
  * Returns a tuple of the current value of the cell and a publisher function (similar to useState).
  * The component will be re-rendered when the cell value changes.
  *
- * @remarks If you need just a publisher function, use {@link useSignal}.
+ * @remarks If you need just a publisher, use {@link usePublisher}.
  *
  * @param cell - The cell to use.
  * @returns A tuple of the current value of the cell and a publisher function.
  * @category Hooks
  */
 export function useCell<T>(cell: NodeRef<T>) {
-  return [useCellValue(cell), useSignal<T>(cell)] as const
+  return [useCellValue(cell), usePublisher<T>(cell)] as const
 }

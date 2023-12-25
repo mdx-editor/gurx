@@ -28,65 +28,110 @@ Gurx has three types of node definitions: **cells**, **signals**, and **actions*
 
 ### The Realm
 
-The cells, signals, and actions are just blueprints **and** references to nodes within a realm that will be created. The actual instantiation and interaction (publishing, subscribing, etc) with them happens through a Realm instance. A realm is initially empty; it creates their node instances when you subscribe or publish to them through it. If a cell/signal refers to other nodes in its initialization function, the realm will automatically recursively include those nodes as well. 
+The cells, signals, and actions are just blueprints **and** references to nodes within a realm that will be created. The actual instantiation and interaction (publishing, subscribing, etc.) with them happens through a Realm instance. A realm is initially empty; it creates their node instances when you subscribe or publish to them through it. If a cell/signal refers to other nodes in its initialization function, the realm will automatically recursively include those nodes as well. 
 
 Each cell/signal has a single instance in a realm. If you subscribe to a cell/signal multiple times, the realm will return the same instance. In practices, you don't have to care about the distinction between an instance and a definition - under the hood, they both use symbol as a reference.
 
-## Hello world
+## Installation
 
-```tsx
-import { map, Signal, Cell, RealmProvider, useCellValue, useSignal } from '.'
+## Defining Cells and Signals
 
-// Create a cell with an initial value. The second parameter marks the cell as a distinct.
-const cell$ = Cell('foo', true)
+The first step in building your state management logic is to define the cells and signals that will hold the values and their relationships. Unlike other state management libraries, Gurx doesn't have the concept of a store. Instead, the cells and signals definitions are declared on the module level. A cell is defined by calling the `Cell` function, which accepts an initial value, a distinct flag, and an initialization function that can be used to connect the cell to other nodes using the realm instance which starts it. The `Signal` function is the same, but with the initial value argument. 
 
-// A distinct signal that will update the cell when its value changes. 
-// The second argument is a function that takes a Realm instance and allows you to link the signal to other cells and signals. 
-const signal$ = Signal<number>(true, (r) => {
-  r.link(
-    r.pipe(
-      signal$,
-     map((signal) => `Signal${signal}`)
-    ),
-    cell$
-  )
+Note: You can name the node references with a dollar sign suffix, to indicate that they are reactive. Most likely, you will reference their values in the body of the operators/React components without the dollar sign suffix.
+
+```ts
+const myCell$ = Cell(
+  // initial value
+  0,
+  // distinct flag
+  true,
+  // the r is the realm instance that starts the cell
+  (r) => {
+    r.sub(myCell$, (value) => {
+      console.log('myCell$ changed to', value)
+    })
+  }
+)
+
+// Since signals have no initial value, you need to specify the type of data that will flow through them
+const mySignal$ = Signal<number>(
+  // distinct flag
+  true,
+  // the r is the realm instance that starts the cell
+  (r) => {
+    r.sub(mySignal$, (value) => {
+      console.log('mySignal$ changed to', value)
+    })
+    // publishing a value through a signal will publish it into $myCell as well
+    r.link(mySignal$, myCell$)
+  }
+)
+```
+
+If the node passes non-primitive values, but you still want to optimize re-rendering, you can pass a custom comparator function as the `distinct` argument. 
+
+## Working with nodes
+
+By themselves, the node definitions won't do anything. The actual work happens when a realm instance is created and you start interacting with node refs returned from `Cell`/`Signal`.
+
+### Publishing and subscribing, and getting the current values
+
+Following the example above, we can create a realm instance and publish a value through the signal using `pub` and `sub`:
+
+```ts
+const realm = new Realm()
+
+realm.sub(myCell$, (value) => {
+  console.log('a subscription from the outside', value)
 })
 
-const Comp = () => {
-  const cell = useCellValue(cell$)
-  const pushSignal = useSignal(signal$)
+realm.pub(mySignal$, 1)
+```
 
-  return (
-    <div>
-      <button
-        onClick={() => {
-          pushSignal(1)
-        }}
-      >
-        click
-      </button>
+Note: In addition to `pub`/`sub`, the realm supports both publishing and subscribing to multiple nodes at once with its `pubIn` and `subMultiple` methods. You can also use exclusive, "singleton" subscriptions through the `singletonSub` method - these are useful for event handling mechanism.
 
-      {cell}
-    </div>
-  )
+Since the cells are stateful, you can also get their current value for a given realm instance using the `getValue`/`getValues` methods at any moment:
+
+```ts
+r.getValue(myCell$) // 1
+```
+
+While perfectly fine, and sometimes necessary, getting the values moves the data outside of the reactive realm paradigm. You should use those as the final endpoint of your state management.
+
+## Linking, combining and transforming nodes
+
+The examples so far have referred to the most basic way of connecting nodes - the `link` method. It's a one-way connection that pushes the values from the source node to the target node. The bread and butter of Gurx are the operators that allow you to create more complex relationships between the nodes. The operators are used with the realm's `pipe` method. The below example will add `1` to the value that flows through `mySignal$` and publish it to `myCell$`:
+
+```ts
+// use this in the initialization function of mySignal$
+r.link(r.pipe(mySignal$, map((x) => x + 1)), myCell$)
+```
+
+`map` and `filter` are the most basic operators. Gurx includes additional ones like `mapTo`, `throttleTime` and `withLatestFrom`. An operator can be a conditional, like `filter`, or even asynchronous, like `throttleTime` or `handlePromise`. You can create your own custom operators by implementing the `Operator` interface.
+
+## Using in React
+
+Gurx includes a `RealmProvider` React component and a set of hooks that allow you to access the values and to publish new values in the given nodes. Referring to a node in the hooks automatically initiates it in the nearest realm.
+
+```tsx
+const foo$ = Cell('foo', true)
+
+function Foo() {
+  const foo = useCellValue(foo$)
+  return (<div>{foo}</div>)
 }
 
-export const App = () => {
+export function App() {
   return (
-    <RealmProvider>
-      <Comp />
-    </RealmProvider>
+    <RealmProvider><Foo /></RealmProvider>
   )
 }
 ```
 
-## Operators 
+Additional hooks include `usePublisher`, `useCellValues`, and the low-level `useRealm` that returns the realm instance from the provider. 
 
-Gurx exports a set of operators like `map`, `filter`, `mapTo`, etc. The realm instance also exposes a `pipe` method that allows you to chain operators together, a combine function that lets you combine multiple signals into one, and a `link` method that allows you to link a signal to a cell or another signal.
+## Next steps
 
-## Hooks 
+The README is meant to give you a breath-first overview of the library. More details about the operators, hooks, and realm capabilities can be found in the API Reference.
 
-// TODO
-
-## More
-See the tests for more examples. 

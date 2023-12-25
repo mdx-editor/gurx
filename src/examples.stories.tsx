@@ -1,20 +1,21 @@
-import { Action, Cell, RealmProvider, useCellValue, useCellValues, useSignal } from '.'
+import { Action, Cell, RealmProvider, useCellValue, useCellValues, usePublisher } from '.'
 
-const foo = Cell('foo', true)
-const bar = Cell('bar', true)
-const q = Action((r) => {
-  r.sub(q, () => {
+const foo$ = Cell('foo', true)
+const bar$ = Cell('bar', true)
+
+const q$ = Action((r) => {
+  r.sub(q$, () => {
     r.pubIn({
-      [foo]: 'baz',
-      [bar]: 'bam',
+      [foo$]: 'baz',
+      [bar$]: 'bam',
     })
   })
 })
 
 const WorldChild = () => {
-  const [a, b] = useCellValues(foo, bar)
-  const aa = useCellValue(foo)
-  const action = useSignal(q)
+  const [a, b] = useCellValues(foo$, bar$)
+  const aa = useCellValue(foo$)
+  const action = usePublisher(q$)
   console.log('render', { a, b })
   return (
     <div>

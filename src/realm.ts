@@ -216,7 +216,12 @@ export class Realm {
    */
   subMultiple<T1>(nodes: [NodeRef<T1>], subscription: Subscription<[T1]>): UnsubscribeHandle
   subMultiple<T1, T2>(nodes: [NodeRef<T1>, NodeRef<T2>], subscription: Subscription<[T1, T2]>): UnsubscribeHandle
-  subMultiple<T1, T2, T3>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>], subscription: Subscription<[T1, T2, T3]>): UnsubscribeHandle
+  subMultiple<T1, T2, T3>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>], subscription: Subscription<[T1, T2, T3]>): UnsubscribeHandle // prettier-ignore
+  subMultiple<T1, T2, T3, T4>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>], subscription: Subscription<[T1, T2, T3, T4]>): UnsubscribeHandle // prettier-ignore
+  subMultiple<T1, T2, T3, T4, T5>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>], subscription: Subscription<[T1, T2, T3, T4, T5]>): UnsubscribeHandle // prettier-ignore
+  subMultiple<T1, T2, T3, T4, T5, T6>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>], subscription: Subscription<[T1, T2, T3, T4, T5, T6]>): UnsubscribeHandle // prettier-ignore
+  subMultiple<T1, T2, T3, T4, T5, T6, T7>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>], subscription: Subscription<[T1, T2, T3, T4, T5, T6, T7]>): UnsubscribeHandle // prettier-ignore
+  subMultiple<T1, T2, T3, T4, T5, T6, T7, T8>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>], subscription: Subscription<[T1, T2, T3, T4, T5, T6, T7, T8]>): UnsubscribeHandle // prettier-ignore
   subMultiple(nodes: Array<NodeRef<unknown>>, subscription: Subscription<any>): UnsubscribeHandle
   subMultiple(nodes: Array<NodeRef<unknown>>, subscription: Subscription<any>): UnsubscribeHandle {
     const sink = this.signalInstance()
