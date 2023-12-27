@@ -378,7 +378,6 @@ export class Realm {
    */
   pub<T>(node: NodeRef<T>, value: T): void
   pub<T>(node: NodeRef<T>, value?: T) {
-    this.register(node)
     this.pubIn({ [node]: value })
   }
 
@@ -589,61 +588,63 @@ export class Realm {
     })
   }
 
-  private calculateExecutionMap(ids: symbol[]) {
+  private calculateExecutionMap(nodes: symbol[]) {
     const participatingNodes: symbol[] = []
     const visitedNodes = new Set()
     const pendingPulls = new SetMap<symbol>()
     const refCount = new RefCount()
     const projections = new SetMap<RealmProjection>()
 
-    const visit = (id: symbol, insertIndex = 0) => {
-      refCount.increment(id)
+    const visit = (node: symbol, insertIndex = 0) => {
+      refCount.increment(node)
 
-      if (visitedNodes.has(id)) {
+      if (visitedNodes.has(node)) {
         return
       }
 
-      pendingPulls.use(id, (pulls) => {
+      this.register(node as NodeRef<unknown>)
+
+      pendingPulls.use(node, (pulls) => {
         insertIndex = Math.max(...Array.from(pulls).map((key) => participatingNodes.indexOf(key))) + 1
       })
 
-      this.graph.use(id, (sinkProjections) => {
+      this.graph.use(node, (sinkProjections) => {
         for (const projection of sinkProjections) {
-          if (projection.sources.has(id)) {
+          if (projection.sources.has(node)) {
             projections.getOrCreate(projection.sink).add(projection)
             visit(projection.sink, insertIndex)
           } else {
-            pendingPulls.getOrCreate(projection.sink).add(id)
+            pendingPulls.getOrCreate(projection.sink).add(node)
           }
         }
       })
 
-      visitedNodes.add(id)
-      participatingNodes.splice(insertIndex, 0, id)
+      visitedNodes.add(node)
+      participatingNodes.splice(insertIndex, 0, node)
     }
 
-    ids.forEach(visit)
+    nodes.forEach(visit)
 
     return { participatingNodes, pendingPulls, projections, refCount }
   }
 
-  private getExecutionMap(ids: symbol[]) {
-    let key: symbol | symbol[] = ids
-    if (ids.length === 1) {
-      key = ids[0]
+  private getExecutionMap(nodes: symbol[]) {
+    let key: symbol | symbol[] = nodes
+    if (nodes.length === 1) {
+      key = nodes[0]
       const existingMap = this.executionMaps.get(key)
       if (existingMap !== undefined) {
         return existingMap
       }
     } else {
       for (const [key, existingMap] of this.executionMaps.entries()) {
-        if (Array.isArray(key) && key.length === ids.length && key.every((id) => ids.includes(id))) {
+        if (Array.isArray(key) && key.length === nodes.length && key.every((id) => nodes.includes(id))) {
           return existingMap
         }
       }
     }
 
-    const map = this.calculateExecutionMap(ids)
+    const map = this.calculateExecutionMap(nodes)
     this.executionMaps.set(key, map)
     return map
   }
