@@ -1,6 +1,10 @@
 import React from 'react'
 import { Realm } from './realm'
 
+/**
+ * @category React Components
+ * The context that provides the realm to the built-in hooks.
+ */
 export const RealmContext = React.createContext<Realm | null>(null)
 
 /**
