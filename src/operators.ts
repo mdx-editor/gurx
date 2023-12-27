@@ -247,7 +247,7 @@ export function handlePromise<I, OutSuccess, OnLoad, OutError>(
   return ((source, r) => {
     const sink = r.signalInstance<OutSuccess | OnLoad | OutError>()
     r.sub(source, (value) => {
-      if (value instanceof Promise) {
+      if (value !== null && typeof value === 'object' && 'then' in value) {
         r.pub(sink, onLoad())
         value
           .then((value) => {

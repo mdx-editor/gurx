@@ -637,7 +637,7 @@ export class Realm {
       }
     } else {
       for (const [key, existingMap] of this.executionMaps.entries()) {
-        if (key instanceof Array && key.length === ids.length && key.every((id) => ids.includes(id))) {
+        if (Array.isArray(key) && key.length === ids.length && key.every((id) => ids.includes(id))) {
           return existingMap
         }
       }
