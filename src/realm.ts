@@ -117,9 +117,9 @@ export class Realm {
   cellInstance<T>(value: T, distinct: Distinct<T> = true, node = Symbol()): NodeRef<T> {
     if (!this.state.has(node)) {
       this.state.set(node, value)
-      if (distinct !== false) {
-        this.distinctNodes.set(node, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
-      }
+    }
+    if (distinct !== false && !this.distinctNodes.has(node)) {
+      this.distinctNodes.set(node, distinct === true ? defaultComparator : (distinct as Comparator<unknown>))
     }
 
     return node as NodeRef<T>

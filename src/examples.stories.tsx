@@ -1,6 +1,11 @@
 import { Action, Cell, RealmProvider, useCellValue, useCellValues, usePublisher } from '.'
 
-const foo$ = Cell('foo')
+const foo$ = Cell('foo', (r) => {
+  r.sub(foo$, (v) => {
+    console.log('foo', v)
+  })
+})
+
 const bar$ = Cell('bar')
 
 const q$ = Action((r) => {
@@ -33,7 +38,7 @@ const WorldChild = () => {
 
 export const Hello = () => {
   return (
-    <RealmProvider>
+    <RealmProvider initWith={{ [foo$]: 'foo' }} updateWith={{ [foo$]: 'foo' }}>
       <WorldChild />
     </RealmProvider>
   )
