@@ -1,42 +1,43 @@
-import { map, Signal, Cell, RealmProvider, useCellValue, usePublisher } from '.'
+import { Cell, RealmProvider, Signal, map, useCellValue, usePublisher } from "."
 
 // Create a cell with an initial value
-const cell$ = Cell('foo')
+const cell$ = Cell("foo")
 
 // A signal, that will update the cell when its value changes
 const signal$ = Signal<number>((r) => {
-  r.link(
-    r.pipe(
-      signal$,
-      map((signal) => `Signal${signal}`)
-    ),
-    cell$
-  )
+	r.link(
+		r.pipe(
+			signal$,
+			map((signal) => `Signal${signal}`),
+		),
+		cell$,
+	)
 })
 
 const Comp = () => {
-  const cell = useCellValue(cell$)
-  const pushSignal = usePublisher(signal$)
+	const cell = useCellValue(cell$)
+	const pushSignal = usePublisher(signal$)
 
-  return (
-    <div>
-      <button
-        onClick={() => {
-          pushSignal(1)
-        }}
-      >
-        click
-      </button>
+	return (
+		<div>
+			<button
+				type="button"
+				onClick={() => {
+					pushSignal(1)
+				}}
+			>
+				click
+			</button>
 
-      {cell}
-    </div>
-  )
+			{cell}
+		</div>
+	)
 }
 
 export const App = () => {
-  return (
-    <RealmProvider>
-      <Comp />
-    </RealmProvider>
-  )
+	return (
+		<RealmProvider>
+			<Comp />
+		</RealmProvider>
+	)
 }
