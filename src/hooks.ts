@@ -47,7 +47,11 @@ export function useCellValue<T>(cell: NodeRef<T>) {
     [realm, cell]
   )
 
-  return React.useSyncExternalStore(cb, () => realm.getValue(cell))
+  return React.useSyncExternalStore(
+    cb,
+    () => realm.getValue(cell),
+    () => realm.getValue(cell)
+  )
 }
 
 /**
@@ -99,7 +103,11 @@ export function useCellValues(...cells: Array<NodeRef<unknown>>): unknown[] {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [realm, ...cells]
   )
-  return React.useSyncExternalStore(cb, () => currentRef.current)
+  return React.useSyncExternalStore(
+    cb,
+    () => currentRef.current,
+    () => currentRef.current
+  )
 }
 
 /**
