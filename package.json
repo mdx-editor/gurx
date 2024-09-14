@@ -46,14 +46,14 @@
     "dist"
   ],
   "license": "MIT",
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+  "peerDependencies": {
+    "react": ">= 18 || >= 19",
+    "react-dom": ">= 18 || >= 19"
   },
   "devDependencies": {
     "@ladle/react": "^4.0.2",
     "@testing-library/jest-dom": "^6.1.5",
-    "@testing-library/react": "^14.1.2",
+    "@testing-library/react": "^16.0.1",
     "@types/node": "^18.19.3",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
@@ -72,6 +72,8 @@
     "eslint-plugin-react-refresh": "^0.4.5",
     "jsdom": "^23.0.1",
     "prettier": "3.1.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "semantic-release": "^22.0.12",
     "typedoc": "^0.25.4",
     "typescript": "^5.3.3",
