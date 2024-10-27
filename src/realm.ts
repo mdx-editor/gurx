@@ -495,6 +495,50 @@ export class Realm {
   }
 
   /**
+   * Combines the values from multiple nodes into a cell that's an array of the latest values of the nodes.
+   */
+  combineCells<T1> (...nodes: [NodeRef<T1>]): NodeRef<[T1]> // prettier-ignore
+  combineCells<T1, T2> (...nodes: [NodeRef<T1>, NodeRef<T2>]): NodeRef<[T1, T2]> // prettier-ignore
+  combineCells<T1, T2, T3> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): NodeRef<[T1, T2, T3]> // prettier-ignore
+  combineCells<T1, T2, T3, T4> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): NodeRef<[T1, T2, T3, T4]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): NodeRef<[T1, T2, T3, T4, T5]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]): NodeRef<[T1, T2, T3, T4, T5, T6]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>, NodeRef<T20>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>, NodeRef<T20>, NodeRef<T21>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]> // prettier-ignore
+  combineCells(...sources: Array<NodeRef<unknown>>): NodeRef<unknown> {
+    return tap(
+      this.cellInstance(
+        sources.map((source) => this.getValue(source)),
+        true
+      ),
+      (sink) => {
+        this.connect({
+          map:
+            (done) =>
+            (...args) => {
+              done(args)
+            },
+          sink,
+          sources,
+        })
+      }
+    )
+  }
+
+  /**
    * Gets the current value of a node. The node must be stateful.
    * @remark if possible, use {@link withLatestFrom} or {@link combine}, as getValue will not create a dependency to the passed node,
    * which means that if you call it within a computational cycle, you may not get the correct value.

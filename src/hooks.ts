@@ -40,12 +40,7 @@ export function useCellValue<T>(cell: NodeRef<T>) {
   const realm = useRealm()
   realm.register(cell)
 
-  const cb = React.useCallback(
-    (c: () => void) => {
-      return realm.sub(cell, c)
-    },
-    [realm, cell]
-  )
+  const cb = React.useCallback((c: () => void) => realm.sub(cell, c), [realm, cell])
 
   return React.useSyncExternalStore(
     cb,
@@ -85,29 +80,8 @@ export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>
 export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]; // prettier-ignore
 export function useCellValues(...cells: Array<NodeRef<unknown>>): unknown[] {
   const realm = useRealm()
-  const initial = React.useMemo(
-    () => realm.getValues(cells),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  )
-  const currentRef = React.useRef<unknown[]>(initial)
-
-  const cb = React.useCallback(
-    (c: () => void) => {
-      const sub = (values: unknown[]) => {
-        currentRef.current = values
-        c()
-      }
-      return realm.subMultiple(cells, sub)
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [realm, ...cells]
-  )
-  return React.useSyncExternalStore(
-    cb,
-    () => currentRef.current,
-    () => currentRef.current
-  )
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  return useCellValue(realm.combineCells.apply(realm, cells as any))
 }
 
 /**
