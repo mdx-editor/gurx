@@ -305,7 +305,9 @@ describe('realm features', () => {
 
     r.connect<[number]>({
       map: (done) => (value) => {
-        value % 2 === 0 && done(value)
+        if (value % 2 === 0) {
+          done(value)
+        }
       },
       sink: b,
       sources: [a],
@@ -333,7 +335,9 @@ describe('realm features', () => {
 
     r.connect<[number]>({
       map: (done) => (value) => {
-        value % 2 === 0 && done(value)
+        if (value % 2 === 0) {
+          done(value)
+        }
       },
       sink: b,
       sources: [a],
@@ -438,7 +442,9 @@ describe('realm features', () => {
   it('supports custom comparator when distinct flag is set', () => {
     const a = Cell(
       { id: 'foo' },
-      () => {},
+      () => {
+        // noop
+      },
       (current, next) => (current !== undefined ? current.id === next.id : false)
     )
     const spy = vi.fn()
@@ -553,8 +559,7 @@ describe('singleton subscription', () => {
             if (val === 2) {
               resolve('loaded')
             } else {
-              // eslint-disable-next-line prefer-promise-reject-errors
-              reject('error')
+              reject(new Error('something went wrong'))
             }
           })
         }),

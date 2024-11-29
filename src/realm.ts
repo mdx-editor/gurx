@@ -81,6 +81,7 @@ interface SignalDefinition<T> {
   init: NodeInit<T>
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeDefs$$ = new Map<symbol, CellDefinition<any> | SignalDefinition<any>>()
 
 /**
@@ -222,8 +223,10 @@ export class Realm {
   subMultiple<T1, T2, T3, T4, T5, T6>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>], subscription: Subscription<[T1, T2, T3, T4, T5, T6]>): UnsubscribeHandle // prettier-ignore
   subMultiple<T1, T2, T3, T4, T5, T6, T7>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>], subscription: Subscription<[T1, T2, T3, T4, T5, T6, T7]>): UnsubscribeHandle // prettier-ignore
   subMultiple<T1, T2, T3, T4, T5, T6, T7, T8>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>], subscription: Subscription<[T1, T2, T3, T4, T5, T6, T7, T8]>): UnsubscribeHandle // prettier-ignore
-  subMultiple(nodes: Array<NodeRef<unknown>>, subscription: Subscription<any>): UnsubscribeHandle
-  subMultiple(nodes: Array<NodeRef<unknown>>, subscription: Subscription<any>): UnsubscribeHandle {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  subMultiple(nodes: NodeRef[], subscription: Subscription<any>): UnsubscribeHandle
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  subMultiple(nodes: NodeRef[], subscription: Subscription<any>): UnsubscribeHandle {
     const sink = this.signalInstance()
     this.connect({
       map:
@@ -279,7 +282,7 @@ export class Realm {
       let resolved = false
       const done = (value: unknown) => {
         const dnRef = this.distinctNodes.get(id)
-        if (dnRef !== undefined && dnRef(transientState.get(id), value)) {
+        if (dnRef?.(transientState.get(id), value)) {
           resolved = false
           return
         }
@@ -300,6 +303,7 @@ export class Realm {
         })
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (resolved) {
         const value = transientState.get(id)
         this.subscriptions.use(id, (nodeSubscriptions) => {
@@ -327,15 +331,15 @@ export class Realm {
     /**
      * The source nodes that emit values to the sink node. The values will be passed as arguments to the map function.
      */
-    sources: Array<NodeRef<unknown>>
+    sources: NodeRef[]
     /**
      * The nodes which values will be pulled. The values will be passed as arguments to the map function.
      */
-    pulls?: Array<NodeRef<unknown>>
+    pulls?: NodeRef[]
     /**
      * The sink node that will receive the result of the map function.
      */
-    sink: NodeRef<unknown>
+    sink: NodeRef
     /**
      * The projection function that will be called when any of the source nodes emits.
      */
@@ -350,7 +354,7 @@ export class Realm {
 
     for (const node of [...sources, ...pulls]) {
       this.register(node)
-      this.graph.getOrCreate(node).add(dependency as RealmProjection<unknown[]>)
+      this.graph.getOrCreate(node).add(dependency as RealmProjection)
     }
 
     this.executionMaps.clear()
@@ -376,6 +380,7 @@ export class Realm {
    * const r = new Realm()
    * r.pub(foo$, 'bar')
    */
+  // eslint-disable-next-line @typescript-eslint/unified-signatures
   pub<T>(node: NodeRef<T>, value: T): void
   pub<T>(node: NodeRef<T>, value?: T) {
     this.pubIn({ [node]: value })
@@ -402,8 +407,8 @@ export class Realm {
   pipe<T, O1, O2, O3, O4, O5, O6, O7> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): NodeRef<O7> // prettier-ignore
   pipe<T, O1, O2, O3, O4, O5, O6, O7, O8> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>, O<O7, O8>]): NodeRef<O8> // prettier-ignore
   pipe<T, O1, O2, O3, O4, O5, O6, O7, O8, O9> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>, O<O7, O8>, O<O8, O9>]): NodeRef<O9> // prettier-ignore
-  pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): NodeRef<unknown>
-  pipe<T>(source: NodeRef<T>, ...operators: Array<O<unknown, unknown>>): NodeRef<unknown> {
+  pipe<T>(source: NodeRef<T>, ...operators: O<unknown, unknown>[]): NodeRef
+  pipe<T>(source: NodeRef<T>, ...operators: O<unknown, unknown>[]): NodeRef {
     return this.combineOperators(...operators)(source)
   }
 
@@ -433,8 +438,8 @@ export class Realm {
   transformer<In, Out, O1, O2, O3>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
   transformer<In, Out, O1, O2, O3, O4>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
   transformer<In, Out, O1, O2, O3, O4, O5>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
-  transformer<In, Out>(...operators: Array<O<unknown, unknown>>): (s: NodeRef<Out>) => NodeRef<In>
-  transformer<In, Out>(...operators: Array<O<unknown, unknown>>): (s: NodeRef<Out>) => NodeRef<In> {
+  transformer<In, Out>(...operators: O<unknown, unknown>[]): (s: NodeRef<Out>) => NodeRef<In>
+  transformer<In, Out>(...operators: O<unknown, unknown>[]): (s: NodeRef<Out>) => NodeRef<In> {
     return (sink: NodeRef<Out>) => {
       return tap(this.signalInstance<In>(), (source) => {
         this.link(this.pipe(source, ...operators), sink)
@@ -480,7 +485,7 @@ export class Realm {
   combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]> // prettier-ignore
   combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]> // prettier-ignore
   combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]> // prettier-ignore
-  combine(...sources: Array<NodeRef<unknown>>): NodeRef<unknown> {
+  combine(...sources: NodeRef[]): NodeRef {
     return tap(this.signalInstance(), (sink) => {
       this.connect({
         map:
@@ -518,7 +523,7 @@ export class Realm {
   combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]> // prettier-ignore
   combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>, NodeRef<T20>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]> // prettier-ignore
   combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>, NodeRef<T20>, NodeRef<T21>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]> // prettier-ignore
-  combineCells(...sources: Array<NodeRef<unknown>>): NodeRef<unknown> {
+  combineCells(...sources: NodeRef[]): NodeRef {
     return tap(
       this.cellInstance(
         sources.map((source) => this.getValue(source)),
@@ -575,8 +580,8 @@ export class Realm {
   getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]; // prettier-ignore
   getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]; // prettier-ignore
   getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]; // prettier-ignore
-  getValues<T>(nodes: Array<NodeRef<T>>): unknown[]
-  getValues(nodes: Array<NodeRef<unknown>>) {
+  getValues<T>(nodes: NodeRef<T>[]): unknown[]
+  getValues(nodes: NodeRef[]) {
     return nodes.map((node) => this.getValue(node))
   }
 
@@ -585,7 +590,7 @@ export class Realm {
    * Most of the time you don't need to do that, since any interaction with the node through a realm will register it.
    * The only exception of that rule should be when the interaction is conditional, and the node definition includes an init function that needs to be eagerly evaluated.
    */
-  register(node: NodeRef<unknown>) {
+  register(node: NodeRef) {
     const definition = nodeDefs$$.get(node)
     // local node
     if (definition === undefined) {
@@ -650,7 +655,7 @@ export class Realm {
         return
       }
 
-      this.register(node as NodeRef<unknown>)
+      this.register(node as NodeRef)
 
       pendingPulls.use(node, (pulls) => {
         insertIndex = Math.max(...Array.from(pulls).map((key) => participatingNodes.indexOf(key))) + 1
@@ -705,9 +710,9 @@ export class Realm {
   private combineOperators<T, O1, O2, O3, O4, O5>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): (s: NodeRef<T>) => NodeRef<O5> // prettier-ignore
   private combineOperators<T, O1, O2, O3, O4, O5, O6>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): (s: NodeRef<T>) => NodeRef<O6> // prettier-ignore
   private combineOperators<T, O1, O2, O3, O4, O5, O6, O7>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): (s: NodeRef<T>) => NodeRef<O7> // prettier-ignore
-  private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown>
-  private combineOperators<T>(...o: Array<O<unknown, unknown>>): (s: NodeRef<T>) => NodeRef<unknown> {
-    return (source: NodeRef<unknown>) => {
+  private combineOperators<T>(...o: O<unknown, unknown>[]): (s: NodeRef<T>) => NodeRef
+  private combineOperators<T>(...o: O<unknown, unknown>[]): (s: NodeRef<T>) => NodeRef {
+    return (source: NodeRef) => {
       for (const op of o) {
         source = op(source, this)
       }

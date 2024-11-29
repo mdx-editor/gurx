@@ -6,4 +6,6 @@ export function tap<T>(arg: T, callback: (arg: T) => unknown): T {
   return arg
 }
 
-export function noop() {}
+export function noop() {
+  // do nothing
+}

@@ -1,4 +1,5 @@
-import { Action, Cell, RealmProvider, useCellValue, useCellValues, usePublisher } from '.'
+/* eslint-disable no-console */
+import { Action, Cell, RealmProvider, useCellValue, useCellValues, usePublisher } from './index'
 
 const foo$ = Cell('foo', (r) => {
   r.sub(foo$, (v) => {
@@ -25,7 +26,7 @@ const WorldChild = () => {
   return (
     <div>
       <button
-        onClick={() => {
+          onClick={() => {
           action()
         }}
       >

@@ -204,7 +204,7 @@ describe('pipe', () => {
       r.pipe(
         a,
         withLatestFrom(b),
-        map(([_, b]) => b + 1)
+        map(([, b]) => b + 1)
       ),
       b
     )

@@ -45,7 +45,7 @@ export  function withLatestFrom<I, T1, T2, T3, T4, T5> (...nodes: [NodeRef<T1>, 
 export  function withLatestFrom<I, T1, T2, T3, T4, T5, T6> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6]> // prettier-ignore
 export  function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
 export  function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7, T8> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
-export function withLatestFrom<I>(...nodes: Array<NodeRef<unknown>>) {
+export function withLatestFrom<I>(...nodes: NodeRef[]) {
   return ((source, r) => {
     const sink = r.signalInstance()
     r.connect({
@@ -90,7 +90,9 @@ export function filter<I, O = I>(predicate: (value: I) => boolean) {
     const sink = r.signalInstance<O>()
     r.connect({
       map: (done) => (value) => {
-        predicate(value as I) && done(value)
+        if (predicate(value as I)) {
+          done(value)
+        }
       },
       sink,
       sources: [source],
@@ -252,8 +254,9 @@ export function handlePromise<I, OutSuccess, OnLoad, OutError>(
         value
           .then((value) => {
             r.pub(sink, onSuccess(value))
+            return
           })
-          .catch((error) => {
+          .catch((error: unknown) => {
             r.pub(sink, onError(error))
           })
       } else {

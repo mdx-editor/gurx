@@ -6,8 +6,7 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "jsx": "react-jsx",
+    "strictNullChecks": true
   },
-  "include": [
-    "vite.config.ts"
-  ]
+  "include": ["vite.config.ts", "eslint.config.js", "prettier.config.cjs"]
 }
