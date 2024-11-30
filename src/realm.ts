@@ -323,10 +323,12 @@ export class Realm {
 
       if (resolved) {
         const value = transientState.get(id)
-        this.subscriptions.use(id, (nodeSubscriptions) => {
-          for (const subscription of nodeSubscriptions) {
-            subscription(value)
-          }
+        this.inContext(() => {
+          this.subscriptions.use(id, (nodeSubscriptions) => {
+            for (const subscription of nodeSubscriptions) {
+              subscription(value)
+            }
+          })
         })
         this.singletonSubscriptions.get(id)?.(value)
       } else {
@@ -1112,13 +1114,21 @@ export class Realm {
           ? this.cellInstance(definition.initial, definition.distinct, node)
           : this.signalInstance(definition.distinct, node),
         (node$) => {
-          currentRealm$$ = this
-          definition.init(this, node$)
-          currentRealm$$ = undefined
+          this.inContext(() => {
+            definition.init(this, node$)
+          })
         }
       )
     }
     return node
+  }
+
+  inContext<T>(fn: () => T): T {
+    const prevRealm = currentRealm$$
+    currentRealm$$ = this
+    const result = fn()
+    currentRealm$$ = prevRealm
+    return result
   }
 
   /**
