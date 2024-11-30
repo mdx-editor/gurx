@@ -19,7 +19,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "types": ["@testing-library/jest-dom"]
+    "types": ["@vitest/browser/matchers"]
   },
   "include": ["src"],
   "references": [

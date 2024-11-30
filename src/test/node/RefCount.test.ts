@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { RefCount } from './RefCount'
+import { RefCount } from '../../RefCount'
 
 describe('ref counter', () => {
   it('increments by one', () => {

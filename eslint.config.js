@@ -3,7 +3,6 @@
 /* eslint-disable n/no-extraneous-import */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // @ts-check
 
 import eslint from '@eslint/js'

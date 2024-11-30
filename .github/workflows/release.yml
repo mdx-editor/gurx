@@ -20,18 +20,19 @@ jobs:
       id-token: write # to enable use of OIDC for npm provenance
       actions: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
+
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "lts/*"
+          node-version: 'lts/*'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
 
       - name: Test
         run: |

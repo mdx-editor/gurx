@@ -19,12 +19,4 @@ export default defineConfig({
       output: { exports: 'named' },
     },
   },
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['src/test-setup.ts'],
-    typecheck: {
-      include: ['**/*.{test,spec}-?(c|m)[jt]s?(x)'],
-      enabled: true,
-    },
-  },
 })

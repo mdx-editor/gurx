@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, expectTypeOf } from 'vitest'
-import { filter, handlePromise, map } from './operators'
-import { Realm, Cell, Signal, Action } from '.'
+import { filter, handlePromise, map } from '../../operators'
+import { Realm, Cell, Signal, Action, DerivedCell, pipe } from '../..'
 
 describe('gurx cells/signals', () => {
   let r: Realm
@@ -578,6 +578,22 @@ describe('singleton subscription', () => {
 
     r.pub(s, 3)
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(r.getValue(a)).toEqual('error')
+    expect(r.getValue(a)).toMatchObject(new Error('something went wrong'))
+  })
+})
+
+describe('Derived cell', () => {
+  it('creates a derived cell', () => {
+    const foo$ = Cell('foo')
+    const bar$ = DerivedCell('foo-bar', () =>
+      pipe(
+        foo$,
+        map((val) => val + '-bar')
+      )
+    )
+    const r = new Realm()
+    r.register(bar$)
+    r.pub(foo$, 'baz')
+    expect(r.getValue(bar$)).toEqual('baz-bar')
   })
 })

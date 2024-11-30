@@ -8,5 +8,5 @@
     "jsx": "react-jsx",
     "strictNullChecks": true
   },
-  "include": ["vite.config.ts", "eslint.config.js", "prettier.config.cjs"]
+  "include": ["vite.config.ts", "eslint.config.js", "prettier.config.cjs", "vitest.workspace.ts"]
 }

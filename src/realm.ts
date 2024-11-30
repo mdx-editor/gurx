@@ -3,6 +3,8 @@ import { SetMap } from './SetMap'
 import { type O } from './operators'
 import { tap, noop } from './utils'
 
+const CELL_TYPE = 'cell'
+
 /**
  * A typed reference to a node.
  * @typeParam T - The type of values that the node emits.
@@ -69,7 +71,7 @@ export type Distinct<T> = boolean | Comparator<T>
 export type NodeInit<T> = (r: Realm, node$: NodeRef<T>) => void
 
 interface CellDefinition<T> {
-  type: 'cell'
+  type: typeof CELL_TYPE
   distinct: Distinct<T>
   initial: T
   init: NodeInit<T>
@@ -83,6 +85,7 @@ interface SignalDefinition<T> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const nodeDefs$$ = new Map<symbol, CellDefinition<any> | SignalDefinition<any>>()
+let currentRealm$$: Realm | undefined = undefined
 
 /**
  * The realm is the actual "engine" that orchestrates any cells and signals that it touches. The realm also stores the state and the dependencies of the nodes that are referred through it.
@@ -600,11 +603,14 @@ export class Realm {
     if (!this.definitionRegistry.has(node)) {
       this.definitionRegistry.add(node)
       return tap(
-        definition.type === 'cell'
+        definition.type === CELL_TYPE
           ? this.cellInstance(definition.initial, definition.distinct, node)
           : this.signalInstance(definition.distinct, node),
         (node$) => {
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
+          currentRealm$$ = this
           definition.init(this, node$)
+          currentRealm$$ = undefined
         }
       )
     } else {
@@ -729,9 +735,9 @@ export class Realm {
  * @param distinct - if true, the node will only emit values that are different from the previous value. Optionally, a custom distinct function can be provided if the node values are non-primitive.
  * @example
  * ```ts
- * const foo$ = Cell('foo', true, (r) => {
- * r.sub(foo$, console.log)
- * })
+ * const foo$ = Cell('foo',  (r) => {
+ *   r.sub(foo$, console.log)
+ * }, true)
  * const r = new Realm()
  * r.pub(foo$, 'bar') // the subscription will log 'bar'
  * ```
@@ -741,7 +747,38 @@ export class Realm {
  */
 export function Cell<T>(value: T, init: (r: Realm) => void = noop, distinct: Distinct<T> = true): NodeRef<T> {
   return tap(Symbol(), (id) => {
-    nodeDefs$$.set(id, { type: 'cell', distinct, initial: value, init })
+    nodeDefs$$.set(id, { type: CELL_TYPE, distinct, initial: value, init })
+  }) as NodeRef<T>
+}
+
+/**
+ * Defines a new **stateful node**, links it to an existing node transform and returns a reference to it.
+ * Once a realm instance publishes or subscribes to the node, an instance of that node it will be registered in the realm.
+ * @param value - the initial value of the node. Stateful nodes always have a value.
+ * @param linkFn - an function that will be called when the node is registered in a realm. Should return a node reference to link to.
+ * @param distinct - if true, the node will only emit values that are different from the previous value. Optionally, a custom distinct function can be provided if the node values are non-primitive.
+ * @example
+ * ```ts
+ * const bar$ = Cell('bar')
+ * const foo$ = DerivedCell('foo',  (r, cell$) => {
+ * r.sub(cell$, console.log)
+ * return r.pipe(bar$, (bar) => `foo${bar}`)
+ * }, true)
+ * const r = new Realm()
+ * r.pub(bar$, '-bar') // the subscription will log 'bar'
+ * ```
+ * @category Nodes
+ */
+export function DerivedCell<T>(value: T, linkFn: (r: Realm, cell: NodeRef<T>) => NodeRef<T>, distinct: Distinct<T> = true): NodeRef<T> {
+  return tap(Symbol(), (id) => {
+    nodeDefs$$.set(id, {
+      type: CELL_TYPE,
+      distinct,
+      initial: value,
+      init: (r, node$) => {
+        r.link(linkFn(r, node$), node$)
+      },
+    })
   }) as NodeRef<T>
 }
 
@@ -785,4 +822,37 @@ export function Action(init: NodeInit<void> = noop): NodeRef<void> {
   return tap(Symbol(), (id) => {
     nodeDefs$$.set(id, { type: 'signal', distinct: false, init })
   }) as NodeRef<void>
+}
+
+function getCurrentRealm(): Realm {
+  if (!currentRealm$$) {
+    throw new Error('This function must be called within a realm instance')
+  }
+  return currentRealm$$
+}
+
+export const link: Realm['link'] = (source, sink) => {
+  getCurrentRealm().link(source, sink)
+}
+
+// @ts-expect-error - this is fine
+export const pub: Realm['pub'] = (...args) => {
+  getCurrentRealm().pub(...args)
+}
+
+export const sub: Realm['sub'] = (...args) => {
+  return getCurrentRealm().sub(...args)
+}
+
+export const pubIn: Realm['pubIn'] = (...args) => {
+  getCurrentRealm().pubIn(...args)
+}
+
+export const pipe: Realm['pipe'] = (...args: unknown[]) => {
+  // @ts-expect-error - this is fine
+  return getCurrentRealm().pipe(...args)
+}
+
+export const changeWith: Realm['changeWith'] = (...args) => {
+  getCurrentRealm().changeWith(...args)
 }
