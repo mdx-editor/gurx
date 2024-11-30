@@ -1373,3 +1373,7 @@ export const combine: Realm['combine'] = (...args: unknown[]) => {
   // @ts-expect-error - this is fine
   return getCurrentRealm().combine(...args)
 }
+
+export const getValue: Realm['getValue'] = (node) => {
+  return getCurrentRealm().getValue(node)
+}
