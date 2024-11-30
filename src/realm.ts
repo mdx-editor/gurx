@@ -1367,3 +1367,9 @@ export const pipe: Realm['pipe'] = (...args: unknown[]) => {
 export const changeWith: Realm['changeWith'] = (...args) => {
   getCurrentRealm().changeWith(...args)
 }
+
+// @ts-expect-error - this is fine
+export const combine: Realm['combine'] = (...args: unknown[]) => {
+  // @ts-expect-error - this is fine
+  return getCurrentRealm().combine(...args)
+}
