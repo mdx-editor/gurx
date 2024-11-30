@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi, expectTypeOf } from 'vitest'
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { Action, Cell, DerivedCell, Realm, Signal, pipe } from '../..'
 import { filter, handlePromise, map } from '../../operators'
-import { Realm, Cell, Signal, Action, DerivedCell, pipe } from '../..'
 
 describe('gurx cells/signals', () => {
   let r: Realm
@@ -588,7 +588,7 @@ describe('Derived cell', () => {
     const bar$ = DerivedCell('foo-bar', () =>
       pipe(
         foo$,
-        map((val) => val + '-bar')
+        map((val) => `${val}-bar`)
       )
     )
     const r = new Realm()

@@ -1,4 +1,4 @@
-import { type Realm, type NodeRef } from './realm'
+import type { NodeRef, Realm } from './realm'
 
 /**
  * An operator that transforms a node into another node, used in the {@link Realm.pipe} method.
@@ -37,14 +37,26 @@ export function map<I, O>(mapFunction: (value: I) => O) {
  * Note: The operator does not emit when the nodes emit. If you want to get that, use the `combine` function.
  * @category Operators
  */
-export  function withLatestFrom<I, T1> (...nodes: [NodeRef<T1>]): (source: NodeRef<I>) => NodeRef<[I, T1]> // prettier-ignore
-export  function withLatestFrom<I, T1, T2> (...nodes: [NodeRef<T1>, NodeRef<T2>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2]> // prettier-ignore
-export  function withLatestFrom<I, T1, T2, T3> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3]> // prettier-ignore
-export  function withLatestFrom<I, T1, T2, T3, T4> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4]> // prettier-ignore
-export  function withLatestFrom<I, T1, T2, T3, T4, T5> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5]> // prettier-ignore
-export  function withLatestFrom<I, T1, T2, T3, T4, T5, T6> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6]> // prettier-ignore
-export  function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
-export  function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7, T8> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
+export function withLatestFrom<I, T1>(...nodes: [NodeRef<T1>]): (source: NodeRef<I>) => NodeRef<[I, T1]> // prettier-ignore
+export function withLatestFrom<I, T1, T2>(...nodes: [NodeRef<T1>, NodeRef<T2>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3>(
+  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]
+): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4>(
+  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]
+): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4, T5>(
+  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]
+): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4, T5, T6>(
+  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]
+): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7>(
+  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]
+): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7, T8>(
+  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]
+): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
 export function withLatestFrom<I>(...nodes: NodeRef[]) {
   return ((source, r) => {
     const sink = r.signalInstance()
@@ -135,6 +147,8 @@ export function scan<I, O>(accumulator: (current: O, value: I) => O, seed: O) {
     const sink = r.signalInstance<O>()
     r.connect({
       map: (done) => (value) => {
+        // biome-ignore lint/style/noParameterAssign: this saves space
+        // biome-ignore lint/suspicious/noAssignInExpressions: this saves space
         done((seed = accumulator(seed, value as I)))
       },
       sink,
@@ -232,7 +246,9 @@ export function onNext<I, O>(bufNode: NodeRef<O>) {
       sink,
       sources: [bufNode],
     })
-    r.sub(source, (value) => (pendingValue = value))
+    r.sub(source, (value) => {
+      pendingValue = value
+    })
     return sink
   }) as Operator<I, [I, O]>
 }

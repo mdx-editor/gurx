@@ -1,4 +1,4 @@
-import { map, Signal, Cell, RealmProvider, useCellValue, usePublisher } from '.'
+import { Cell, RealmProvider, Signal, map, useCellValue, usePublisher } from '.'
 
 // Create a cell with an initial value
 const cell$ = Cell('foo')
@@ -21,6 +21,7 @@ const Comp = () => {
   return (
     <div>
       <button
+        type="button"
         onClick={() => {
           pushSignal(1)
         }}

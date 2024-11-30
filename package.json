@@ -11,7 +11,8 @@
     "dev": "ladle serve",
     "build": "tsc && vite build",
     "test": "vitest",
-    "lint": "eslint",
+    "ci-lint": "biome ci",
+    "lint": "biome check",
     "typecheck": "tsc --noEmit",
     "docs:build": "typedoc --excludePrivate --out docs --name 'Gurx' src/index.ts"
   },
@@ -42,36 +43,21 @@
       }
     ]
   },
-  "files": [
-    "dist"
-  ],
+  "files": ["dist"],
   "license": "MIT",
   "peerDependencies": {
     "react": ">= 18 || >= 19",
     "react-dom": ">= 18 || >= 19"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
     "@ladle/react": "^4.1.2",
     "@microsoft/api-extractor": "^7.48.0",
-    "@types/eslint-config-prettier": "^6.11.3",
-    "@types/eslint-plugin-react-refresh": "^0.4.0",
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@typescript-eslint/eslint-plugin": "^8.16.0",
-    "@typescript-eslint/parser": "^8.16.0",
     "@vitejs/plugin-react-swc": "^3.7.2",
     "@vitest/browser": "^2.1.6",
-    "eslint": "^9.15.0",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-import-resolver-typescript": "^3.6.3",
-    "eslint-plugin-import-x": "^4.4.3",
-    "eslint-plugin-n": "^17.14.0",
-    "eslint-plugin-prettier": "^5.2.1",
-    "eslint-plugin-promise": "^7.2.1",
-    "eslint-plugin-react": "^7.37.2",
-    "eslint-plugin-react-hooks": "^5.0.0",
-    "eslint-plugin-react-refresh": "^0.4.14",
     "playwright": "^1.49.0",
     "prettier": "3.4.1",
     "react": "^18.3.1",

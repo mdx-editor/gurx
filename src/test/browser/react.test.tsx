@@ -1,18 +1,24 @@
-import { describe, it, expect } from 'vitest'
-import { Action, Cell, mapTo, RealmProvider, useCell, useCellValue, useCellValues, usePublisher } from '../../'
-import { renderHook } from './renderHook'
+import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
+import { Action, Cell, RealmProvider, mapTo, useCell, useCellValue, useCellValues, usePublisher } from '../../'
+import { renderHook } from './renderHook'
 
 const cell$ = Cell('hello')
 
 describe('gurx realm react', () => {
   it('gets a cell value with useCell', () => {
-    const { result } = renderHook(useCell, { initialProps: cell$, wrapper: RealmProvider })
+    const { result } = renderHook(useCell, {
+      initialProps: cell$,
+      wrapper: RealmProvider,
+    })
     expect(result.current?.[0]).toEqual('hello')
   })
 
   it('has working setters', () => {
-    const { result, rerender } = renderHook(useCell, { initialProps: cell$, wrapper: RealmProvider })
+    const { result, rerender } = renderHook(useCell, {
+      initialProps: cell$,
+      wrapper: RealmProvider,
+    })
     expect(result.current?.[0]).toEqual('hello')
     result.current?.[1]('world')
     rerender(cell$)
@@ -43,7 +49,10 @@ describe('gurx realm react', () => {
   it('supports multiple values', () => {
     const a = Cell('a')
     const b = Cell('b')
-    const { result } = renderHook(() => useCellValues(a, b), { wrapper: RealmProvider, initialProps: undefined })
+    const { result } = renderHook(() => useCellValues(a, b), {
+      wrapper: RealmProvider,
+      initialProps: undefined,
+    })
 
     expect(result.current).toEqual(['a', 'b'])
   })

@@ -1,4 +1,4 @@
-import { createRef, FC, RefObject, useEffect } from 'react'
+import { type FC, type RefObject, createRef, useEffect } from 'react'
 import { render } from 'vitest-browser-react'
 
 export interface RenderHookResult<Result, Props> {

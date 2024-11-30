@@ -1,7 +1,7 @@
 import { RefCount } from './RefCount'
 import { SetMap } from './SetMap'
-import { type O } from './operators'
-import { tap, noop } from './utils'
+import type { O } from './operators'
+import { noop, tap } from './utils'
 
 const CELL_TYPE = 'cell'
 
@@ -83,7 +83,7 @@ interface SignalDefinition<T> {
   init: NodeInit<T>
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: I know why we need any here
 const nodeDefs$$ = new Map<symbol, CellDefinition<any> | SignalDefinition<any>>()
 let currentRealm$$: Realm | undefined = undefined
 
@@ -221,14 +221,29 @@ export class Realm {
   subMultiple<T1>(nodes: [NodeRef<T1>], subscription: Subscription<[T1]>): UnsubscribeHandle
   subMultiple<T1, T2>(nodes: [NodeRef<T1>, NodeRef<T2>], subscription: Subscription<[T1, T2]>): UnsubscribeHandle
   subMultiple<T1, T2, T3>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>], subscription: Subscription<[T1, T2, T3]>): UnsubscribeHandle // prettier-ignore
-  subMultiple<T1, T2, T3, T4>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>], subscription: Subscription<[T1, T2, T3, T4]>): UnsubscribeHandle // prettier-ignore
-  subMultiple<T1, T2, T3, T4, T5>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>], subscription: Subscription<[T1, T2, T3, T4, T5]>): UnsubscribeHandle // prettier-ignore
-  subMultiple<T1, T2, T3, T4, T5, T6>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>], subscription: Subscription<[T1, T2, T3, T4, T5, T6]>): UnsubscribeHandle // prettier-ignore
-  subMultiple<T1, T2, T3, T4, T5, T6, T7>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>], subscription: Subscription<[T1, T2, T3, T4, T5, T6, T7]>): UnsubscribeHandle // prettier-ignore
-  subMultiple<T1, T2, T3, T4, T5, T6, T7, T8>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>], subscription: Subscription<[T1, T2, T3, T4, T5, T6, T7, T8]>): UnsubscribeHandle // prettier-ignore
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  subMultiple<T1, T2, T3, T4>(
+    nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>],
+    subscription: Subscription<[T1, T2, T3, T4]>
+  ): UnsubscribeHandle // prettier-ignore
+  subMultiple<T1, T2, T3, T4, T5>(
+    nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>],
+    subscription: Subscription<[T1, T2, T3, T4, T5]>
+  ): UnsubscribeHandle // prettier-ignore
+  subMultiple<T1, T2, T3, T4, T5, T6>(
+    nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>],
+    subscription: Subscription<[T1, T2, T3, T4, T5, T6]>
+  ): UnsubscribeHandle // prettier-ignore
+  subMultiple<T1, T2, T3, T4, T5, T6, T7>(
+    nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>],
+    subscription: Subscription<[T1, T2, T3, T4, T5, T6, T7]>
+  ): UnsubscribeHandle // prettier-ignore
+  subMultiple<T1, T2, T3, T4, T5, T6, T7, T8>(
+    nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>],
+    subscription: Subscription<[T1, T2, T3, T4, T5, T6, T7, T8]>
+  ): UnsubscribeHandle // prettier-ignore
+  // biome-ignore lint/suspicious/noExplicitAny: I know why we need any here
   subMultiple(nodes: NodeRef[], subscription: Subscription<any>): UnsubscribeHandle
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: I know why we need any here
   subMultiple(nodes: NodeRef[], subscription: Subscription<any>): UnsubscribeHandle {
     const sink = this.signalInstance()
     this.connect({
@@ -306,7 +321,6 @@ export class Realm {
         })
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (resolved) {
         const value = transientState.get(id)
         this.subscriptions.use(id, (nodeSubscriptions) => {
@@ -383,7 +397,6 @@ export class Realm {
    * const r = new Realm()
    * r.pub(foo$, 'bar')
    */
-  // eslint-disable-next-line @typescript-eslint/unified-signatures
   pub<T>(node: NodeRef<T>, value: T): void
   pub<T>(node: NodeRef<T>, value?: T) {
     this.pubIn({ [node]: value })
@@ -400,16 +413,25 @@ export class Realm {
    * const r = new Realm()
    * r.pub(signal$, 1)
    */
-  pipe<T> (s: NodeRef<T>): NodeRef<T> // prettier-ignore
-  pipe<T, O1> (s: NodeRef<T>, o1: O<T, O1>): NodeRef<O1> // prettier-ignore
-  pipe<T, O1, O2> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>]): NodeRef<O2> // prettier-ignore
-  pipe<T, O1, O2, O3> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): NodeRef<O3> // prettier-ignore
-  pipe<T, O1, O2, O3, O4> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): NodeRef<O4> // prettier-ignore
-  pipe<T, O1, O2, O3, O4, O5> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): NodeRef<O5> // prettier-ignore
-  pipe<T, O1, O2, O3, O4, O5, O6> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): NodeRef<O6> // prettier-ignore
-  pipe<T, O1, O2, O3, O4, O5, O6, O7> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): NodeRef<O7> // prettier-ignore
-  pipe<T, O1, O2, O3, O4, O5, O6, O7, O8> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>, O<O7, O8>]): NodeRef<O8> // prettier-ignore
-  pipe<T, O1, O2, O3, O4, O5, O6, O7, O8, O9> (s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>, O<O7, O8>, O<O8, O9>]): NodeRef<O9> // prettier-ignore
+  pipe<T>(s: NodeRef<T>): NodeRef<T> // prettier-ignore
+  pipe<T, O1>(s: NodeRef<T>, o1: O<T, O1>): NodeRef<O1> // prettier-ignore
+  pipe<T, O1, O2>(s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>]): NodeRef<O2> // prettier-ignore
+  pipe<T, O1, O2, O3>(s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): NodeRef<O3> // prettier-ignore
+  pipe<T, O1, O2, O3, O4>(s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): NodeRef<O4> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5>(s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): NodeRef<O5> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5, O6>(s: NodeRef<T>, ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): NodeRef<O6> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5, O6, O7>(
+    s: NodeRef<T>,
+    ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]
+  ): NodeRef<O7> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5, O6, O7, O8>(
+    s: NodeRef<T>,
+    ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>, O<O7, O8>]
+  ): NodeRef<O8> // prettier-ignore
+  pipe<T, O1, O2, O3, O4, O5, O6, O7, O8, O9>(
+    s: NodeRef<T>,
+    ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>, O<O7, O8>, O<O8, O9>]
+  ): NodeRef<O9> // prettier-ignore
   pipe<T>(source: NodeRef<T>, ...operators: O<unknown, unknown>[]): NodeRef
   pipe<T>(source: NodeRef<T>, ...operators: O<unknown, unknown>[]): NodeRef {
     return this.combineOperators(...operators)(source)
@@ -440,7 +462,9 @@ export class Realm {
   transformer<In, Out, O1, O2>(...o: [O<In, O1>, O<O1, O2>, O<O2, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
   transformer<In, Out, O1, O2, O3>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
   transformer<In, Out, O1, O2, O3, O4>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
-  transformer<In, Out, O1, O2, O3, O4, O5>(...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, Out>]): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
+  transformer<In, Out, O1, O2, O3, O4, O5>(
+    ...o: [O<In, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, Out>]
+  ): (s: NodeRef<Out>) => NodeRef<In> // prettier-ignore
   transformer<In, Out>(...operators: O<unknown, unknown>[]): (s: NodeRef<Out>) => NodeRef<In>
   transformer<In, Out>(...operators: O<unknown, unknown>[]): (s: NodeRef<Out>) => NodeRef<In> {
     return (sink: NodeRef<Out>) => {
@@ -469,25 +493,208 @@ export class Realm {
    *
    * When one of the source nodes emits a value, the combined node emits an array of the latest values from each node.
    */
-  combine<T1> (...nodes: [NodeRef<T1>]): NodeRef<T1> // prettier-ignore
-  combine<T1, T2> (...nodes: [NodeRef<T1>, NodeRef<T2>]): NodeRef<[T1, T2]> // prettier-ignore
-  combine<T1, T2, T3> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): NodeRef<[T1, T2, T3]> // prettier-ignore
-  combine<T1, T2, T3, T4> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): NodeRef<[T1, T2, T3, T4]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): NodeRef<[T1, T2, T3, T4, T5]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]): NodeRef<[T1, T2, T3, T4, T5, T6]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]> // prettier-ignore
-  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]> // prettier-ignore
+  combine<T1>(...nodes: [NodeRef<T1>]): NodeRef<T1> // prettier-ignore
+  combine<T1, T2>(...nodes: [NodeRef<T1>, NodeRef<T2>]): NodeRef<[T1, T2]> // prettier-ignore
+  combine<T1, T2, T3>(...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): NodeRef<[T1, T2, T3]> // prettier-ignore
+  combine<T1, T2, T3, T4>(...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): NodeRef<[T1, T2, T3, T4]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5>(...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): NodeRef<[T1, T2, T3, T4, T5]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6>(
+    ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7>(
+    ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8>(
+    ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
+    ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+      NodeRef<T17>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+      NodeRef<T17>,
+      NodeRef<T18>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]> // prettier-ignore
+  combine<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+      NodeRef<T17>,
+      NodeRef<T18>,
+      NodeRef<T19>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]> // prettier-ignore
   combine(...sources: NodeRef[]): NodeRef {
     return tap(this.signalInstance(), (sink) => {
       this.connect({
@@ -505,27 +712,259 @@ export class Realm {
   /**
    * Combines the values from multiple nodes into a cell that's an array of the latest values of the nodes.
    */
-  combineCells<T1> (...nodes: [NodeRef<T1>]): NodeRef<[T1]> // prettier-ignore
-  combineCells<T1, T2> (...nodes: [NodeRef<T1>, NodeRef<T2>]): NodeRef<[T1, T2]> // prettier-ignore
-  combineCells<T1, T2, T3> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): NodeRef<[T1, T2, T3]> // prettier-ignore
-  combineCells<T1, T2, T3, T4> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): NodeRef<[T1, T2, T3, T4]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): NodeRef<[T1, T2, T3, T4, T5]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]): NodeRef<[T1, T2, T3, T4, T5, T6]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>, NodeRef<T20>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]> // prettier-ignore
-  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21> (...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>, NodeRef<T14>, NodeRef<T15>, NodeRef<T16>, NodeRef<T17>, NodeRef<T18>, NodeRef<T19>, NodeRef<T20>, NodeRef<T21>]): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]> // prettier-ignore
+  combineCells<T1>(...nodes: [NodeRef<T1>]): NodeRef<[T1]> // prettier-ignore
+  combineCells<T1, T2>(...nodes: [NodeRef<T1>, NodeRef<T2>]): NodeRef<[T1, T2]> // prettier-ignore
+  combineCells<T1, T2, T3>(...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): NodeRef<[T1, T2, T3]> // prettier-ignore
+  combineCells<T1, T2, T3, T4>(...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): NodeRef<[T1, T2, T3, T4]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5>(
+    ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]
+  ): NodeRef<[T1, T2, T3, T4, T5]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6>(
+    ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7>(
+    ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8>(
+    ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
+    ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+      NodeRef<T17>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+      NodeRef<T17>,
+      NodeRef<T18>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+      NodeRef<T17>,
+      NodeRef<T18>,
+      NodeRef<T19>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+      NodeRef<T17>,
+      NodeRef<T18>,
+      NodeRef<T19>,
+      NodeRef<T20>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]> // prettier-ignore
+  combineCells<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21>(
+    ...nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+      NodeRef<T14>,
+      NodeRef<T15>,
+      NodeRef<T16>,
+      NodeRef<T17>,
+      NodeRef<T18>,
+      NodeRef<T19>,
+      NodeRef<T20>,
+      NodeRef<T21>,
+    ]
+  ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]> // prettier-ignore
   combineCells(...sources: NodeRef[]): NodeRef {
     return tap(
       this.cellInstance(
@@ -573,16 +1012,82 @@ export class Realm {
   getValues<T1>(nodes: [NodeRef<T1>]): [T1] // prettier-ignore
   getValues<T1, T2>(nodes: [NodeRef<T1>, NodeRef<T2>]): [T1, T2] // prettier-ignore
   getValues<T1, T2, T3>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): [T1, T2, T3] // prettier-ignore
-  getValues<T1, T2, T3, T4>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): [T1, T2, T3, T4]; // prettier-ignore
-  getValues<T1, T2, T3, T4, T5>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): [T1, T2, T3, T4, T5]; // prettier-ignore
-  getValues<T1, T2, T3, T4, T5, T6>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]): [T1, T2, T3, T4, T5, T6]; // prettier-ignore
-  getValues<T1, T2, T3, T4, T5, T6, T7>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]): [T1, T2, T3, T4, T5, T6, T7]; // prettier-ignore
-  getValues<T1, T2, T3, T4, T5, T6, T7, T8>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]): [T1, T2, T3, T4, T5, T6, T7, T8]; // prettier-ignore
-  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9]; // prettier-ignore
-  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]; // prettier-ignore
-  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]; // prettier-ignore
-  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]; // prettier-ignore
-  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]; // prettier-ignore
+  getValues<T1, T2, T3, T4>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): [T1, T2, T3, T4] // prettier-ignore
+  getValues<T1, T2, T3, T4, T5>(nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): [T1, T2, T3, T4, T5] // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6>(
+    nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]
+  ): [T1, T2, T3, T4, T5, T6] // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7>(
+    nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]
+  ): [T1, T2, T3, T4, T5, T6, T7] // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8>(
+    nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]
+  ): [T1, T2, T3, T4, T5, T6, T7, T8] // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
+    nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]
+  ): [T1, T2, T3, T4, T5, T6, T7, T8, T9] // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(
+    nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+    ]
+  ): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(
+    nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+    ]
+  ): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11] // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(
+    nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+    ]
+  ): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12] // prettier-ignore
+  getValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(
+    nodes: [
+      NodeRef<T1>,
+      NodeRef<T2>,
+      NodeRef<T3>,
+      NodeRef<T4>,
+      NodeRef<T5>,
+      NodeRef<T6>,
+      NodeRef<T7>,
+      NodeRef<T8>,
+      NodeRef<T9>,
+      NodeRef<T10>,
+      NodeRef<T11>,
+      NodeRef<T12>,
+      NodeRef<T13>,
+    ]
+  ): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13] // prettier-ignore
   getValues<T>(nodes: NodeRef<T>[]): unknown[]
   getValues(nodes: NodeRef[]) {
     return nodes.map((node) => this.getValue(node))
@@ -607,15 +1112,13 @@ export class Realm {
           ? this.cellInstance(definition.initial, definition.distinct, node)
           : this.signalInstance(definition.distinct, node),
         (node$) => {
-          // eslint-disable-next-line @typescript-eslint/no-this-alias
           currentRealm$$ = this
           definition.init(this, node$)
           currentRealm$$ = undefined
         }
       )
-    } else {
-      return node
     }
+    return node
   }
 
   /**
@@ -664,6 +1167,7 @@ export class Realm {
       this.register(node as NodeRef)
 
       pendingPulls.use(node, (pulls) => {
+        // biome-ignore lint/style/noParameterAssign: this saves space
         insertIndex = Math.max(...Array.from(pulls).map((key) => participatingNodes.indexOf(key))) + 1
       })
 
@@ -713,13 +1217,20 @@ export class Realm {
   private combineOperators<T, O1, O2>(...o: [O<T, O1>, O<O1, O2>]): (s: NodeRef<T>) => NodeRef<O2> // prettier-ignore
   private combineOperators<T, O1, O2, O3>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>]): (s: NodeRef<T>) => NodeRef<O3> // prettier-ignore
   private combineOperators<T, O1, O2, O3, O4>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>]): (s: NodeRef<T>) => NodeRef<O4> // prettier-ignore
-  private combineOperators<T, O1, O2, O3, O4, O5>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]): (s: NodeRef<T>) => NodeRef<O5> // prettier-ignore
-  private combineOperators<T, O1, O2, O3, O4, O5, O6>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]): (s: NodeRef<T>) => NodeRef<O6> // prettier-ignore
-  private combineOperators<T, O1, O2, O3, O4, O5, O6, O7>(...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]): (s: NodeRef<T>) => NodeRef<O7> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4, O5>(
+    ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>]
+  ): (s: NodeRef<T>) => NodeRef<O5> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4, O5, O6>(
+    ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>]
+  ): (s: NodeRef<T>) => NodeRef<O6> // prettier-ignore
+  private combineOperators<T, O1, O2, O3, O4, O5, O6, O7>(
+    ...o: [O<T, O1>, O<O1, O2>, O<O2, O3>, O<O3, O4>, O<O4, O5>, O<O5, O6>, O<O6, O7>]
+  ): (s: NodeRef<T>) => NodeRef<O7> // prettier-ignore
   private combineOperators<T>(...o: O<unknown, unknown>[]): (s: NodeRef<T>) => NodeRef
   private combineOperators<T>(...o: O<unknown, unknown>[]): (s: NodeRef<T>) => NodeRef {
     return (source: NodeRef) => {
       for (const op of o) {
+        // biome-ignore lint/style/noParameterAssign: this saves space
         source = op(source, this)
       }
       return source

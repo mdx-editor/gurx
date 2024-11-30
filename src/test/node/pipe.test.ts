@@ -1,8 +1,7 @@
-/* eslint-disable @typescript-eslint/no-confusing-void-expression */
-import { describe, it, expect, vi } from 'vitest'
-import { scan, debounceTime, filter, map, mapTo, withLatestFrom, onNext, throttleTime, once } from '../../operators'
+import { describe, expect, it, vi } from 'vitest'
+import { Cell, Realm, Signal } from '../..'
+import { debounceTime, filter, map, mapTo, onNext, once, scan, throttleTime, withLatestFrom } from '../../operators'
 import { noop } from '../../utils'
-import { Realm, Signal, Cell } from '../..'
 
 async function awaitCall(cb: () => unknown, delay: number) {
   return await new Promise((resolve) => {

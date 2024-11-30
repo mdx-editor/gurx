@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { RealmContext } from './react'
-import { type NodeRef } from './realm'
+import type { NodeRef } from './realm'
 
 /**
  * Returns a direct reference to the current realm. Use with caution.
@@ -65,22 +65,90 @@ export function useCellValue<T>(cell: NodeRef<T>) {
  * }
  * ```
  */
-export function useCellValues<T1>(...cells: [NodeRef<T1>]): [T1]; // prettier-ignore
-export function useCellValues<T1, T2>(...cells: [NodeRef<T1>, NodeRef<T2>]): [T1, T2]; // prettier-ignore
-export function useCellValues<T1, T2, T3>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): [T1, T2, T3]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): [T1, T2, T3, T4]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4, T5>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]): [T1, T2, T3, T4, T5]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4, T5, T6>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]): [T1, T2, T3, T4, T5, T6]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4, T5, T6, T7>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]): [T1, T2, T3, T4, T5, T6, T7]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]): [T1, T2, T3, T4, T5, T6, T7, T8]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]; // prettier-ignore
-export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>, NodeRef<T10>, NodeRef<T11>, NodeRef<T12>, NodeRef<T13>]): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]; // prettier-ignore
+export function useCellValues<T1>(...cells: [NodeRef<T1>]): [T1] // prettier-ignore
+export function useCellValues<T1, T2>(...cells: [NodeRef<T1>, NodeRef<T2>]): [T1, T2] // prettier-ignore
+export function useCellValues<T1, T2, T3>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]): [T1, T2, T3] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4>(...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]): [T1, T2, T3, T4] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4, T5>(
+  ...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]
+): [T1, T2, T3, T4, T5] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4, T5, T6>(
+  ...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]
+): [T1, T2, T3, T4, T5, T6] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4, T5, T6, T7>(
+  ...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]
+): [T1, T2, T3, T4, T5, T6, T7] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8>(
+  ...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]
+): [T1, T2, T3, T4, T5, T6, T7, T8] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9>(
+  ...cells: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>, NodeRef<T9>]
+): [T1, T2, T3, T4, T5, T6, T7, T8, T9] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10>(
+  ...cells: [
+    NodeRef<T1>,
+    NodeRef<T2>,
+    NodeRef<T3>,
+    NodeRef<T4>,
+    NodeRef<T5>,
+    NodeRef<T6>,
+    NodeRef<T7>,
+    NodeRef<T8>,
+    NodeRef<T9>,
+    NodeRef<T10>,
+  ]
+): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11>(
+  ...cells: [
+    NodeRef<T1>,
+    NodeRef<T2>,
+    NodeRef<T3>,
+    NodeRef<T4>,
+    NodeRef<T5>,
+    NodeRef<T6>,
+    NodeRef<T7>,
+    NodeRef<T8>,
+    NodeRef<T9>,
+    NodeRef<T10>,
+    NodeRef<T11>,
+  ]
+): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12>(
+  ...cells: [
+    NodeRef<T1>,
+    NodeRef<T2>,
+    NodeRef<T3>,
+    NodeRef<T4>,
+    NodeRef<T5>,
+    NodeRef<T6>,
+    NodeRef<T7>,
+    NodeRef<T8>,
+    NodeRef<T9>,
+    NodeRef<T10>,
+    NodeRef<T11>,
+    NodeRef<T12>,
+  ]
+): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12] // prettier-ignore
+export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13>(
+  ...cells: [
+    NodeRef<T1>,
+    NodeRef<T2>,
+    NodeRef<T3>,
+    NodeRef<T4>,
+    NodeRef<T5>,
+    NodeRef<T6>,
+    NodeRef<T7>,
+    NodeRef<T8>,
+    NodeRef<T9>,
+    NodeRef<T10>,
+    NodeRef<T11>,
+    NodeRef<T12>,
+    NodeRef<T13>,
+  ]
+): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13] // prettier-ignore
 export function useCellValues(...cells: NodeRef[]): unknown[] {
   const realm = useRealm()
-  // eslint-disable-next-line prefer-spread, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: I know why we need any here
   return useCellValue(realm.combineCells.apply(realm, cells as any))
 }
 

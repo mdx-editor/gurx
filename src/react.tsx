@@ -28,7 +28,7 @@ export function RealmProvider({
    */
   updateWith?: Record<string, unknown>
 }) {
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run it only once
   const theRealm = React.useMemo(() => new Realm(initWith), [])
 
   React.useEffect(() => {
