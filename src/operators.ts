@@ -1,4 +1,4 @@
-import type { NodeRef, Realm } from './realm'
+import type { NodeRef, Out, Realm } from './realm'
 
 /**
  * An operator that transforms a node into another node, used in the {@link Realm.pipe} method.
@@ -6,7 +6,7 @@ import type { NodeRef, Realm } from './realm'
  * @typeParam Out - The type of values that the resulting node will emit.
  * @category Operators
  */
-export type Operator<In, Out> = (source: NodeRef<In>, realm: Realm) => NodeRef<Out>
+export type Operator<I, O> = (source: Out<I>, realm: Realm) => NodeRef<O>
 
 /**
  * Shorter alias for {@link Operator}, to avoid extra long type signatures.
@@ -37,27 +37,15 @@ export function map<I, O>(mapFunction: (value: I) => O) {
  * Note: The operator does not emit when the nodes emit. If you want to get that, use the `combine` function.
  * @category Operators
  */
-export function withLatestFrom<I, T1>(...nodes: [NodeRef<T1>]): (source: NodeRef<I>) => NodeRef<[I, T1]> // prettier-ignore
-export function withLatestFrom<I, T1, T2>(...nodes: [NodeRef<T1>, NodeRef<T2>]): (source: NodeRef<I>) => NodeRef<[I, T1, T2]> // prettier-ignore
-export function withLatestFrom<I, T1, T2, T3>(
-  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>]
-): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3]> // prettier-ignore
-export function withLatestFrom<I, T1, T2, T3, T4>(
-  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>]
-): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4]> // prettier-ignore
-export function withLatestFrom<I, T1, T2, T3, T4, T5>(
-  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>]
-): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5]> // prettier-ignore
-export function withLatestFrom<I, T1, T2, T3, T4, T5, T6>(
-  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>]
-): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6]> // prettier-ignore
-export function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7>(
-  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>]
-): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
-export function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7, T8>(
-  ...nodes: [NodeRef<T1>, NodeRef<T2>, NodeRef<T3>, NodeRef<T4>, NodeRef<T5>, NodeRef<T6>, NodeRef<T7>, NodeRef<T8>]
-): (source: NodeRef<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
-export function withLatestFrom<I>(...nodes: NodeRef[]) {
+export function withLatestFrom<I, T1>(...nodes: [Out<T1>]): (source: Out<I>) => NodeRef<[I, T1]> // prettier-ignore
+export function withLatestFrom<I, T1, T2>(...nodes: [Out<T1>, Out<T2>]): (source: Out<I>) => NodeRef<[I, T1, T2]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3>(...nodes: [Out<T1>, Out<T2>, Out<T3>]): (source: Out<I>) => NodeRef<[I, T1, T2, T3]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4>(...nodes: [Out<T1>, Out<T2>, Out<T3>, Out<T4>]): (source: Out<I>) => NodeRef<[I, T1, T2, T3, T4]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4, T5>(...nodes: [Out<T1>, Out<T2>, Out<T3>, Out<T4>, Out<T5>]): (source: Out<I>) => NodeRef<[I, T1, T2, T3, T4, T5]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4, T5, T6>(...nodes: [Out<T1>, Out<T2>, Out<T3>, Out<T4>, Out<T5>, Out<T6>]): (source: Out<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7>(...nodes: [Out<T1>, Out<T2>, Out<T3>, Out<T4>, Out<T5>, Out<T6>, Out<T7>]): (source: Out<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7]> // prettier-ignore
+export function withLatestFrom<I, T1, T2, T3, T4, T5, T6, T7, T8>(...nodes: [Out<T1>, Out<T2>, Out<T3>, Out<T4>, Out<T5>, Out<T6>, Out<T7>, Out<T8>]): (source: Out<I>) => NodeRef<[I, T1, T2, T3, T4, T5, T6, T7, T8]> // prettier-ignore
+export function withLatestFrom<I>(...nodes: Out[]) {
   return ((source, r) => {
     const sink = r.signalInstance()
     r.connect({
@@ -78,8 +66,8 @@ export function withLatestFrom<I>(...nodes: NodeRef[]) {
  * Operator that maps the output of a node to a fixed value.
  * @category Operators
  */
-export function mapTo<I, O>(value: O) {
-  return ((source, r) => {
+export function mapTo<I, O>(value: O): Operator<I, O> {
+  return (source, r) => {
     const sink = r.signalInstance<O>()
     r.connect({
       map: (done) => () => {
@@ -89,7 +77,7 @@ export function mapTo<I, O>(value: O) {
       sources: [source],
     })
     return sink
-  }) as Operator<I, O>
+  }
 }
 
 /**
@@ -97,8 +85,8 @@ export function mapTo<I, O>(value: O) {
  * If the predicate returns false, the emission is canceled.
  * @category Operators
  */
-export function filter<I, O = I>(predicate: (value: I) => boolean) {
-  return ((source, r) => {
+export function filter<I, O = I>(predicate: (value: I) => boolean): Operator<I, O> {
+  return (source, r) => {
     const sink = r.signalInstance<O>()
     r.connect({
       map: (done) => (value) => {
@@ -110,7 +98,7 @@ export function filter<I, O = I>(predicate: (value: I) => boolean) {
       sources: [source],
     })
     return sink
-  }) as Operator<I, O>
+  }
 }
 
 /**
@@ -118,8 +106,8 @@ export function filter<I, O = I>(predicate: (value: I) => boolean) {
  * Useful if you want to execute a side effect only once.
  * @category Operators
  */
-export function once<I>() {
-  return ((source, r) => {
+export function once<I>(): Operator<I, I> {
+  return (source, r) => {
     const sink = r.signalInstance<I>()
 
     let passed = false
@@ -134,7 +122,7 @@ export function once<I>() {
       sources: [source],
     })
     return sink
-  }) as Operator<I, I>
+  }
 }
 
 /**
@@ -142,8 +130,8 @@ export function once<I>() {
  * Works like the {@link https://rxjs.dev/api/operators/scan | RxJS scan operator}.
  * @category Operators
  */
-export function scan<I, O>(accumulator: (current: O, value: I) => O, seed: O) {
-  return ((source, r) => {
+export function scan<I, O>(accumulator: (current: O, value: I) => O, seed: O): Operator<I, O> {
+  return (source, r) => {
     const sink = r.signalInstance<O>()
     r.connect({
       map: (done) => (value) => {
@@ -155,15 +143,15 @@ export function scan<I, O>(accumulator: (current: O, value: I) => O, seed: O) {
       sources: [source],
     })
     return sink
-  }) as Operator<I, O>
+  }
 }
 
 /**
  * Throttles the output of a node with the specified delay.
  * @category Operators
  */
-export function throttleTime<I>(delay: number) {
-  return ((source, r) => {
+export function throttleTime<I>(delay: number): Operator<I, I> {
+  return (source, r) => {
     const sink = r.signalInstance<I>()
     let currentValue: I | undefined
     let timeout: ReturnType<typeof setTimeout> | null = null
@@ -182,15 +170,15 @@ export function throttleTime<I>(delay: number) {
     })
 
     return sink
-  }) as Operator<I, I>
+  }
 }
 
 /**
  * Debounces the output of a node with the specified delay.
  * @category Operators
  */
-export function debounceTime<I>(delay: number) {
-  return ((source, r) => {
+export function debounceTime<I>(delay: number): Operator<I, I> {
+  return (source, r) => {
     const sink = r.signalInstance<I>()
     let currentValue: I | undefined
     let timeout: ReturnType<typeof setTimeout> | null = null
@@ -208,15 +196,15 @@ export function debounceTime<I>(delay: number) {
     })
 
     return sink
-  }) as Operator<I, I>
+  }
 }
 
 /**
  * Delays the output of a node with `queueMicrotask`.
  * @category Operators
  */
-export function delayWithMicrotask<I>() {
-  return ((source, r) => {
+export function delayWithMicrotask<I>(): Operator<I, I> {
+  return (source, r) => {
     const sink = r.signalInstance<I>()
     r.sub(source, (value) => {
       queueMicrotask(() => {
@@ -224,16 +212,16 @@ export function delayWithMicrotask<I>() {
       })
     })
     return sink
-  }) as Operator<I, I>
+  }
 }
 
 /**
  * description Buffers the stream of a node until the passed note emits.
  * @category Operators
  */
-export function onNext<I, O>(bufNode: NodeRef<O>) {
-  return ((source, r) => {
-    const sink = r.signalInstance<O>()
+export function onNext<I, O>(bufNode: NodeRef<O>): Operator<I, [I, O]> {
+  return (source, r) => {
+    const sink = r.signalInstance<[I, O]>()
     const bufferValue = Symbol()
     let pendingValue: I | typeof bufferValue = bufferValue
     r.connect({
@@ -250,19 +238,15 @@ export function onNext<I, O>(bufNode: NodeRef<O>) {
       pendingValue = value
     })
     return sink
-  }) as Operator<I, [I, O]>
+  }
 }
 
 /**
  * Handles a promise value through the specified callbacks.
  * @category Operators
  */
-export function handlePromise<I, OutSuccess, OnLoad, OutError>(
-  onLoad: () => OnLoad,
-  onSuccess: (value: I) => OutSuccess,
-  onError: (error: unknown) => OutError
-) {
-  return ((source, r) => {
+export function handlePromise<I, OutSuccess, OnLoad, OutError>(onLoad: () => OnLoad, onSuccess: (value: I) => OutSuccess, onError: (error: unknown) => OutError): Operator<I | Promise<I>, OutSuccess | OnLoad | OutError> {
+  return (source, r) => {
     const sink = r.signalInstance<OutSuccess | OnLoad | OutError>()
     r.sub(source, (value) => {
       if (value !== null && typeof value === 'object' && 'then' in value) {
@@ -280,5 +264,5 @@ export function handlePromise<I, OutSuccess, OnLoad, OutError>(
       }
     })
     return sink
-  }) as Operator<I | Promise<I>, OutSuccess | OnLoad | OutError>
+  }
 }

@@ -35,17 +35,15 @@ export interface RenderHookOptions<Props> {
   initialProps: Props
 }
 
-export function renderHook<Result, Props>(
-  useHookFn: (initialProps: Props) => Result,
-  options: RenderHookOptions<Props>
-): RenderHookResult<Result, Props> {
+export function renderHook<Result, Props>(useHookFn: (initialProps: Props) => Result, options: RenderHookOptions<Props>): RenderHookResult<Result, Props> {
   const { initialProps, ...renderOptions } = options
 
   const result = createRef<Result>()
+
   const TestComponent: FC<{ renderCallbackProps: Props }> = ({ renderCallbackProps }) => {
     const pendingResult = useHookFn(renderCallbackProps)
     useEffect(() => {
-      // @ts-expect-error - TS is just messing up here
+      // @ts-expect-error
       result.current = pendingResult
     })
 
@@ -57,6 +55,5 @@ export function renderHook<Result, Props>(
   function rerender(rerenderCallbackProps: Props) {
     baseRerender(<TestComponent renderCallbackProps={rerenderCallbackProps} />)
   }
-
   return { result, rerender }
 }
