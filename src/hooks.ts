@@ -148,8 +148,12 @@ export function useCellValues<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12,
 ): [T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13] // prettier-ignore
 export function useCellValues(...cells: NodeRef[]): unknown[] {
   const realm = useRealm()
-  // biome-ignore lint/suspicious/noExplicitAny: I know why we need any here
-  return useCellValue(realm.combineCells.apply(realm, cells as any))
+  // biome-ignore lint/correctness/useExhaustiveDependencies: spreading the cells is fine here
+  const combinedCell = React.useMemo(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: I know why we need any here
+    return realm.combineCells.apply(realm, cells as any)
+  }, [realm, ...cells])
+  return useCellValue(combinedCell)
 }
 
 /**

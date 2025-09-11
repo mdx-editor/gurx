@@ -87,6 +87,11 @@ interface SignalDefinition<T> {
 const nodeDefs$$ = new Map<symbol, CellDefinition<any> | SignalDefinition<any>>()
 let currentRealm$$: Realm | undefined = undefined
 
+interface CombinedCellRecord {
+  sources: symbol[]
+  cell: NodeRef
+}
+
 /**
  * The realm is the actual "engine" that orchestrates any cells and signals that it touches. The realm also stores the state and the dependencies of the nodes that are referred through it.
  *
@@ -99,6 +104,7 @@ export class Realm {
   private readonly distinctNodes = new Map<symbol, Comparator<unknown>>()
   private readonly executionMaps = new Map<symbol | symbol[], ExecutionMap>()
   private readonly definitionRegistry = new Set<symbol>()
+  private readonly combinedCells: CombinedCellRecord[] = []
 
   /**
    * Creates a new realm.
@@ -968,23 +974,31 @@ export class Realm {
     ]
   ): NodeRef<[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]> // prettier-ignore
   combineCells(...sources: NodeRef[]): NodeRef {
-    return tap(
-      this.cellInstance(
-        sources.map((source) => this.getValue(source)),
-        true
-      ),
-      (sink) => {
-        this.connect({
-          map:
-            (done) =>
-            (...args) => {
-              done(args)
-            },
-          sink,
-          sources,
-        })
-      }
+    const existing = this.combinedCells.find((entry) => {
+      return sources.length === entry.sources.length && sources.every((s, i) => s === entry.sources[i])
+    })
+
+    if (existing) {
+      return existing.cell
+    }
+
+    const combinedCell = this.cellInstance(
+      sources.map((source) => this.getValue(source)),
+      true
     )
+
+    this.connect({
+      map:
+        (done) =>
+        (...args) => {
+          done(args)
+        },
+      sink: combinedCell,
+      sources,
+    })
+
+    this.combinedCells.push({ sources, cell: combinedCell })
+    return combinedCell
   }
 
   /**
