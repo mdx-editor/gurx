@@ -6,7 +6,7 @@ import type { NodeRef, Realm } from './realm'
  * @typeParam Out - The type of values that the resulting node will emit.
  * @category Operators
  */
-export type Operator<In, Out> = (source: NodeRef<In>, realm: Realm) => NodeRef<Out>
+export type Operator<In, Out> = (source: NodeRef<In>) => NodeRef<Out>
 
 /**
  * Shorter alias for {@link Operator}, to avoid extra long type signatures.
